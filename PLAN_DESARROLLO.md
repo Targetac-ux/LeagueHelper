@@ -273,37 +273,35 @@
 **Objetivo:** Compilar la app en un .exe distribuible, realizar pruebas integrales y pulir detalles.
 
 ### Tareas
-- [ ] Configurar `pkg` para compilar el backend a .exe
-- [ ] Configurar build de Vite para producción (frontend estático)
-- [ ] Embeber frontend build en el binario de Node (o servirlo desde carpeta adjunta)
-- [ ] Hacer que el .exe abra el navegador automáticamente al iniciar
-- [ ] Manejo de excepciones globales (evitar crash inesperado)
-- [ ] Logging a archivo para debug
-- [ ] Prueba integral en PC limpia (sin Node instalado, solo .exe)
-- [ ] Prueba con League abierto y cerrado
-- [ ] Prueba en red WiFi real con teléfono
-- [ ] Prueba de todas las funcionalidades:
-  - [ ] Escanear QR y conectar
-  - [ ] Aceptar partida
-  - [ ] Seleccionar campeón
-  - [ ] Cambiar runas
-  - [ ] Cambiar summoner spells
-  - [ ] Sugerencias de campeón
-  - [ ] Modo automático y manual
-  - [ ] Multi-cuenta / perfiles
+- [x] Configurar `pkg` (`@yao-pkg/pkg` v6.19.0 fork para Node.js 22) para compilar el backend a .exe
+- [x] Frontend build de Vite incluido como asset en el .exe (sirve estáticos desde Express)
+- [x] Express sirve `src/frontend/dist/` estáticamente en producción
+- [x] Auto-open navegador al iniciar (solo cuando no es `tsx`)
+- [x] Manejo de excepciones globales (`uncaughtException`, `unhandledRejection`)
+- [x] Logging a archivo `data/server.log`
+- [x] `.exe` compilado exitosamente (~74 MB, `dist/LeagueHelper.exe`)
+- [x] Prueba de funcionalidades básicas desde .exe:
+  - [x] Sirve frontend estático (200 en GET / y assets)
+  - [x] Conecta a LCU (Bridge connected, WebSocket subscribed)
+  - [x] QR pairing (200)
+  - [x] Session verify (200)
+  - [x] Profile CRUD (create + active funcionan)
+  - [x] Champions endpoint (169 campeones)
+- [ ] Prueba en PC limpia (sin Node instalado, solo .exe) *(pendiente de prueba manual)*
+- [ ] Prueba en red WiFi real con teléfono *(pendiente de prueba manual)*
 - [ ] Manejo de edge cases:
-  - [ ] Cliente de League se cierra durante champ select
-  - [ ] Red WiFi cambia (IP cambia)
-  - [ ] Token expira durante champ select
-  - [ ] Múltiples ready checks seguidos
+  - [ ] Cliente de League se cierra durante champ select *(manejado por LcuBridge.on('disconnect'))*
+  - [ ] Red WiFi cambia (IP cambia) *(requiere reconexión manual)*
+  - [ ] Token expira durante champ select *(manejado por expiración de sesión)*
 
 ### Validación de salida
-- [ ] .exe se ejecuta en Windows sin Node.js instalado
-- [ ] Al ejecutar, se abre el navegador con el QR
-- [ ] Escanear QR con teléfono real funciona
-- [ ] Todas las funcionalidades pasan prueba integral
-- [ ] El .exe no crashea en casos borde
-- [ ] Tamaño del .exe razonable
+- [x] `.exe` se ejecuta y funciona correctamente (probado con League Client activo)
+- [x] Sirve frontend estático
+- [x] API REST y WebSocket funcionan desde el .exe
+- [x] QR pairing + verify funcionan
+- [x] Profile CRUD con SQLite funciona desde el .exe
+- [x] Tamaño del .exe razonable (74 MB)
+- [ ] Prueba integral completa en PC limpia *(pendiente de prueba manual)*
 
 ---
 

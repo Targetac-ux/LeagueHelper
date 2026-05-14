@@ -4,6 +4,9 @@ import morgan from 'morgan';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import * as QRCode from 'qrcode';
+import { exec } from 'child_process';
+import { join } from 'path';
+import { appendFileSync, existsSync } from 'fs';
 import { LcuBridge } from '../lcu-bridge/client';
 import { SessionManager } from './session';
 import { getSuggestions } from './suggestions';
@@ -242,6 +245,21 @@ app.get('/api/champions', async (_req, res) => {
   }
 });
 
+// Serve built frontend in production
+const possibleDists = [
+  join(__dirname, '..', 'frontend', 'dist'),                    // tsx dev
+  join(__dirname, '..', '..', 'src', 'frontend', 'dist'),       // pkg snapshot
+  join(process.cwd(), 'src', 'frontend', 'dist'),               // cwd fallback
+];
+let frontendDist = '';
+for (const p of possibleDists) {
+  if (existsSync(p)) { frontendDist = p; break; }
+}
+if (frontendDist) {
+  app.use(express.static(frontendDist));
+  console.log(`[Server] Serving static frontend from ${frontendDist}`);
+}
+
 // Profile CRUD
 app.get('/api/profiles', authMiddleware, (_req, res) => {
   res.json(getAllProfiles());
@@ -378,7 +396,39 @@ function broadcast(data: Record<string, unknown>): void {
   });
 }
 
+// File logging
+function logToFile(msg: string): void {
+  try {
+    const logDir = __dirname.includes('snapshot') ? process.cwd() : join(__dirname, '..', '..', 'data');
+    if (!existsSync(logDir)) return;
+    appendFileSync(join(logDir, 'server.log'), `[${new Date().toISOString()}] ${msg}\n`);
+  } catch {
+    // ignore log errors
+  }
+}
+
+// Global exception handlers
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message, err.stack);
+  logToFile(`FATAL Uncaught exception: ${err.message} ${err.stack}`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  logToFile(`FATAL Unhandled rejection: ${String(reason)}`);
+});
+
 server.listen(PORT, () => {
-  console.log(`LeagueHelper server running on http://localhost:${PORT}`);
+  const url = `http://localhost:${PORT}`;
+  console.log(`LeagueHelper server running on ${url}`);
+  logToFile(`Server started on ${url}`);
+
+  // Auto-open browser (production only, skip if running via tsx)
+  if (!process.execPath.includes('tsx')) {
+    exec(`start ${url}`, (err) => {
+      if (err) console.warn('[Server] Could not open browser:', err.message);
+    });
+  }
+
   bridge.start();
 });

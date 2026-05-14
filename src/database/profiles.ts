@@ -22,14 +22,23 @@ interface Row {
   updated_at: string;
 }
 
-const DB_PATH = join(__dirname, '..', '..', 'data', 'leaguehelper.db');
+function getDataDir(): string {
+  // Use cwd when running from pkg snapshot, otherwise use project-relative path
+  const cwd = process.cwd();
+  const cwdData = join(cwd, 'data');
+  if (existsSync(cwdData) || !__dirname.includes('snapshot')) {
+    return cwdData;
+  }
+  return join(__dirname, '..', '..', 'data');
+}
 
 let db: Database.Database;
 
 function getDb(): Database.Database {
   if (!db) {
-    const dir = join(__dirname, '..', '..', 'data');
+    const dir = getDataDir();
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const DB_PATH = join(dir, 'leaguehelper.db');
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
     db.exec(`
