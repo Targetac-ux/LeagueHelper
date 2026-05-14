@@ -101,22 +101,22 @@
 **Objetivo:** Crear la aplicación React que se verá en el móvil, conectada al servidor vía WebSocket.
 
 ### Tareas
-- [ ] Inicializar React + Vite + TypeScript
-- [ ] Configurar proxy de Vite al backend en dev
-- [ ] Crear hook `useWebSocket` para conexión y reconexión automática
-- [ ] Crear hook `useGameflow` que expone la fase actual del juego
-- [ ] Crear layout responsive (mobile-first) con CSS modules o Tailwind
-- [ ] Mostrar estado de conexión (conectado/desconectado)
-- [ ] Mostrar nombre del invocador y fase actual
-- [ ] Página: panel principal con información básica
-- [ ] Página: loading/error state para cada componente
+- [x] Inicializar React + Vite + TypeScript *(Sprint 0)*
+- [x] Configurar proxy de Vite al backend en dev *(Sprint 0)*
+- [x] Crear hook `useWebSocket` para conexión y reconexión automática
+- [x] Crear hook `useGameflow` que expone la fase actual del juego
+- [x] Crear layout responsive (mobile-first) con estilos inline + CSS global
+- [x] Mostrar estado de conexión (conectado/desconectado) — `ConnectionStatus`
+- [x] Mostrar nombre del invocador y fase actual — `SummonerInfo` + `GameflowDisplay`
+- [x] Página: panel principal con información básica — `MainPanel`
+- [x] Página: loading/error state para cada componente
 
 ### Validación de salida
-- [ ] Frontend se conecta al WebSocket del servidor
-- [ ] Se muestra la fase del juego en tiempo real
-- [ ] Diseño responsive funciona en viewport móvil (375px - 414px)
-- [ ] Si el servidor se cae, el frontend muestra "desconectado" y reconecta
-- [ ] Sin errores de TypeScript
+- [x] Frontend se conecta al WebSocket del servidor
+- [x] Se muestra la fase del juego en tiempo real
+- [x] Diseño responsive funciona en viewport móvil (meta tag + max-width container)
+- [x] Si el servidor se cae, el frontend muestra "desconectado" y reconecta
+- [x] Sin errores de TypeScript
 
 ---
 

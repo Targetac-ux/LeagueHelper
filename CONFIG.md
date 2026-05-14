@@ -142,3 +142,4 @@ Herramienta que permite al usuario de League of Legends gestionar la selección 
 | 2026-05-13 | Sprint 0 completado: proyecto inicializado con Node.js/TS + React/Vite + ESLint/Prettier |
 | 2026-05-13 | Sprint 1 completado: LCU Bridge module (lockfile, WebSocket, eventos, reconexión) |
 | 2026-05-13 | Sprint 2 completado: server con morgan, error handler, endpoint champ-select, eventos WebSocket |
+| 2026-05-13 | Sprint 3 completado: frontend React con hooks useWebSocket y useGameflow, componentes responsive |
