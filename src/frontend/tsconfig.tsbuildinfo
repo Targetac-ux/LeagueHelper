@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/acceptbutton.tsx","./src/components/champselectpanel.tsx","./src/components/championgrid.tsx","./src/components/connectionstatus.tsx","./src/components/gameflowdisplay.tsx","./src/components/mainpanel.tsx","./src/components/qrpairing.tsx","./src/components/runepanel.tsx","./src/components/summonerinfo.tsx","./src/hooks/usegameflow.ts","./src/hooks/usewebsocket.ts"],"version":"5.9.3"}
