@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useGameflow } from '../hooks/useGameflow';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SummonerInfo } from './SummonerInfo';
 import { GameflowDisplay } from './GameflowDisplay';
 import { AcceptButton } from './AcceptButton';
 import { ChampSelectPanel } from './ChampSelectPanel';
+import { RunePanel } from './RunePanel';
 
 interface Props {
   sessionToken: string;
@@ -11,6 +13,7 @@ interface Props {
 
 export function MainPanel({ sessionToken }: Props) {
   const { connectionState, summoner, phase, champSelectData } = useGameflow(sessionToken);
+  const [showRunes, setShowRunes] = useState(false);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -63,7 +66,47 @@ export function MainPanel({ sessionToken }: Props) {
       )}
 
       {connectionState === 'connected' && phase === 'ChampSelect' && (
-        <ChampSelectPanel sessionToken={sessionToken} data={champSelectData} />
+        <>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setShowRunes(false)}
+              style={{
+                flex: 1,
+                padding: '8px 0',
+                borderRadius: 6,
+                border: 'none',
+                background: !showRunes ? '#3b82f6' : '#1e293b',
+                color: '#f1f5f9',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Champ Select
+            </button>
+            <button
+              onClick={() => setShowRunes(true)}
+              style={{
+                flex: 1,
+                padding: '8px 0',
+                borderRadius: 6,
+                border: 'none',
+                background: showRunes ? '#3b82f6' : '#1e293b',
+                color: '#f1f5f9',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Runes
+            </button>
+          </div>
+          {showRunes ? (
+            <RunePanel sessionToken={sessionToken} />
+          ) : (
+            <ChampSelectPanel sessionToken={sessionToken} data={champSelectData} />
+          )}
+        </>
       )}
 
       {connectionState === 'connected' && summoner && !['ReadyCheck', 'ChampSelect'].includes(phase) && (

@@ -123,6 +123,62 @@ app.post('/api/champ-select/action/:id/complete', authMiddleware, async (req, re
 
 let championsCache: Record<string, { id: string; name: string; image: string }> | null = null;
 
+let perksCache: Record<string, unknown> | null = null;
+
+app.get('/api/perks/data', async (_req, res) => {
+  if (perksCache) {
+    res.json(perksCache);
+    return;
+  }
+  try {
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/runesReforged.json');
+    perksCache = (await response.json()) as Record<string, unknown>;
+    res.json(perksCache);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch perk data' });
+  }
+});
+
+app.get('/api/perks/pages', authMiddleware, async (_req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const pages = await bridge.makeRequest('GET', '/lol-perks/v1/pages');
+    res.json(pages);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch perk pages', details: (err as Error).message });
+  }
+});
+
+app.post('/api/perks/pages', authMiddleware, async (req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const result = await bridge.makeRequest('POST', '/lol-perks/v1/pages', req.body);
+    res.json(result || { success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create perk page', details: (err as Error).message });
+  }
+});
+
+app.put('/api/perks/currentpage', authMiddleware, async (req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const { id } = req.body as { id: number };
+    const result = await bridge.makeRequest('PUT', `/lol-perks/v1/currentpage/${id}`);
+    res.json(result || { success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to set current perk page', details: (err as Error).message });
+  }
+});
+
 app.get('/api/champions', async (_req, res) => {
   if (championsCache) {
     res.json(championsCache);
