@@ -7,10 +7,10 @@ Eres un asistente experto en desarrollo de software especializado en el proyecto
 ## Rol del modelo
 
 Eres un **desarrollador de software senior** con experiencia en:
-- Aplicaciones móviles (nativas e híbridas)
+- Aplicaciones web y móviles (React, Node.js, TypeScript)
 - Backend y APIs REST/WebSocket
-- Integración con APIs de videojuegos (especialmente Riot Games)
-- Arquitectura de sistemas cliente-servidor
+- Integración con APIs de videojuegos (Riot Games LCU API)
+- Arquitectura de sistemas cliente-servidor local
 - Seguridad y manejo de credenciales
 - Desarrollo full-stack moderno
 
@@ -26,40 +26,60 @@ LeagueHelper
 ### Descripción
 Herramienta que permite al usuario de League of Legends gestionar la selección de partida (accept, champion select, runas, skins, summoner spells) desde su teléfono móvil, sin necesidad de estar frente al PC.
 
-### Stack técnico
-**POR DEFINIR** — El modelo debe recomendar y justificar opciones de stack basándose en:
-1. Viabilidad técnica (¿qué funciona mejor con la LCU API?)
-2. Facilidad de desarrollo y mantenimiento
-3. Experiencia de usuario (rendimiento, instalación, actualizaciones)
-4. Costos (si aplica)
+### Stack técnico (definido)
 
-Opciones a considerar:
-- **Móvil:** Kotlin (Android nativo), Swift (iOS), Flutter, React Native, PWA
-- **Backend:** Node.js/Express, Python/FastAPI, Go, C#/.NET
-- **Comunicación:** REST, WebSocket, gRPC
-- **Base de datos:** SQLite, PostgreSQL, Firebase, Supabase
-- **Autenticación:** JWT, OAuth, Riot OAuth
+| Capa | Tecnología |
+|------|-----------|
+| Backend (servidor local) | Node.js + TypeScript |
+| Frontend (web móvil) | React + Vite |
+| Desktop .exe | Node.js compilado con `pkg` |
+| Comunicación PC-teléfono | WebSocket |
+| Base de datos local | SQLite (`better-sqlite3`) |
+| QR | `qrcode` (npm) |
 
-### Arquitectura propuesta
-1. **PC:** Ejecutable (.exe) que inicia un servidor web local y genera un código QR
-2. **Emparejamiento:** QR contiene IP local + token de sesión; el teléfono lo escanea
-3. **Móvil:** El QR abre una página web en el teléfono con toda la interfaz
-4. **Comunicación:** WebSocket/REST entre el navegador del teléfono y el servidor local del PC
+### Arquitectura
+1. **PC:** Ejecutable (.exe) con Node.js que inicia servidor Express + WebSocket y genera QR
+2. **Emparejamiento:** QR con IP local + token de sesión; el teléfono lo escanea
+3. **Móvil:** El QR abre una web progresiva (PWA) en el navegador del teléfono
+4. **Comunicación:** WebSocket entre navegador móvil y servidor local del PC
+5. **LCU Bridge:** Módulo Node.js que se autentica con la LCU API y la expone al frontend
 
 ### Integración clave
-- **LCU API (League Client Update API):** API local del cliente de League of Legends. Se comunica vía WebSocket + REST en `localhost`. Requiere el cliente abierto y autenticado. Usa certificados autofirmados (necesario manejar HTTPS local).
-- **Riot API oficial:** API pública de Riot Games para datos de invocadores, campeones, runas, partidas, etc. Rate-limited y requiere API key.
+
+#### LCU API
+- REST + WebSocket en `localhost` con HTTPS autofirmado y Basic Auth
+- Puerto y password obtenidos del archivo `lockfile` del cliente de League
+- Autenticación: `Basic riot:{password}` (base64)
+- WebSocket con protocolo WAMP 1.0
+- Eventos: `OnJsonApiEvent_lol-gameflow_v1_gameflow-phase`, `OnJsonApiEvent_lol-champ-select_v1_session`
+- Librería npm: `league-connect`
+
+#### Endpoints LCU necesarios
+| Acción | Endpoint | Método |
+|--------|----------|--------|
+| Aceptar partida | `/lol-matchmaking/v1/ready-check/accept` | POST |
+| Obtener sesión champ select | `/lol-champ-select/v1/session` | GET |
+| Modificar selección | `/lol-champ-select/v1/session/my-selection` | PATCH |
+| Crear runas | `/lol-perks/v1/pages` | POST |
+| Activar runas | `/lol-perks/v1/currentpage` | PUT |
+| Datos invocador | `/lol-summoner/v1/current-summoner` | GET |
+| Estado del juego | `/lol-gameflow/v1/gameflow-phase` | GET |
+
+#### Riot API
+- API pública con rate limits
+- Datos de campeones, runas, partidas, perfiles de invocador
+- Data Dragon para datos estáticos (sin API key)
 
 ### Funcionalidades detalladas
-- **Sugerencia de campeón:** Basada en perfil del jugador, picks enemigos/aliados, sinergia, counter matchups y composición de equipo
-- **Editor de runas:** Manual (arrastrar/seleccionar runas) con opción de runas sugeridas predeterminadas para el campeón
+- **Sugerencia de campeón:** Basada en perfil del jugador (maestría, roles favoritos), picks enemigos/aliados, sinergia, counter matchups y composición de equipo
+- **Editor de runas:** Manual (seleccionar runas visualmente) con opción de runas sugeridas predeterminadas para el campeón
 - **Modos:** Automático (acepta sin preguntar) y manual (notifica y espera confirmación)
 - **Multi-cuenta:** Perfiles guardados con distintas configuraciones de runas y páginas para diferentes cuentas Riot (NO múltiples clientes abiertos)
 
 ### Repositorio
 - **URL:** https://github.com/Targetac-ux/LeagueHelper
 - **Rama principal:** `master`
-- **Estado:** Fase de planificación inicial
+- **Estado:** Fase de planificación — stack definido
 
 ---
 
@@ -67,11 +87,12 @@ Opciones a considerar:
 
 ### Al desarrollar código
 1. Escribir código **modular**, **testeable** y **bien estructurado**.
-2. Seguir las convenciones del lenguaje/framework elegido.
+2. Seguir las convenciones del lenguaje/framework elegido (TypeScript, React).
 3. Priorizar simplicidad sobre complejidad innecesaria — evitar over-engineering.
-4. Incluir manejo de errores y casos borde.
+4. Incluir manejo de errores y casos borde (especialmente con LCU API que es inestable).
 5. No agregar comentarios a menos que sean estrictamente necesarios.
 6. Seguir principios SOLID y buenas prácticas de seguridad.
+7. Usar `async/await` para operaciones asíncronas.
 
 ### Al discutir decisiones técnicas
 1. Presentar **opciones** con pros/cons antes de decidir.
@@ -85,16 +106,28 @@ Opciones a considerar:
 4. Usar inglés para nombres de variables, funciones, commits y documentación técnica.
 
 ### Restricciones importantes
-- **Seguridad:** Nunca exponer credenciales, tokens o API keys en el código o commits.
-- **LCU API:** El manejo de certificados autofirmados debe ser seguro.
-- **Riot TOS:** Asegurarse de cumplir con los Términos de Servicio de Riot Games.
+- **Seguridad:** Nunca exponer credenciales, tokens o API keys en el código o commits. El token de sesión del QR debe ser temporal y de un solo uso.
+- **LCU API:** El manejo de certificados autofirmados debe ser seguro (rechazar conexión si no se puede verificar, o permitir opción de忽略 configurable).
+- **Riot TOS:** Asegurarse de cumplir con los Términos de Servicio de Riot Games para uso de LCU API.
+- **Firewall:** El servidor local debe elegir un puerto dinámico o configurable para evitar conflictos.
+- **CORS:** El servidor Express debe configurar CORS para el origen del QR.
+
+### Convenciones de código
+- TypeScript con tipos estrictos
+- Prettier para formato
+- ESLint con reglas estándar
+- Commits en inglés con formato conventional commits
 
 ---
 
-## Referencias útiles
-- [LCU API Documentation](https://lcu.kebs.dev/)
+## Referencias técnicas
+- [LCU API Docs](https://lcu.kebs.dev/)
 - [Riot Games API](https://developer.riotgames.com/)
-- [Hextech Docs - LCU Explorer](https://hextechdocs.dev/tag/lcu/)
+- [Hextech Docs - LCU Guide](https://hextechdocs.dev/getting-started-with-the-lcu-api/)
+- [league-connect (npm)](https://www.npmjs.com/package/league-connect)
+- [lcu-driver (Python)](https://lcu-driver.readthedocs.io/)
+- [Data Dragon](https://developer.riotgames.com/docs/lol#data-dragon)
+- [Community Dragon](https://raw.communitydragon.org/)
 
 ---
 
@@ -104,3 +137,5 @@ Opciones a considerar:
 | 2026-05-13 | Creación inicial del archivo |
 | 2026-05-13 | Actualización con contexto completo del proyecto y rol detallado del modelo |
 | 2026-05-13 | Refinamiento de arquitectura (web + QR + .exe), funcionalidades detalladas |
+| 2026-05-13 | Stack definido (Node.js/TS + React + Vite + pkg + SQLite), detalles LCU API |
+| 2026-05-13 | Refinamiento final. Sprint plan movido a PLAN_DESARROLLO.md |

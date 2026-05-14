@@ -15,70 +15,76 @@ Herramienta que permite al usuario de **League of Legends** gestionar toda la se
 - [ ] **Editor de runas manual** con opción de runas sugeridas/predeterminadas (como en el cliente)
 - [ ] **Modos de operación:** automático (acepta todo sin preguntar) y manual (notifica y espera confirmación)
 - [ ] **Sistema de emparejamiento PC-teléfono** vía código QR
-- [ ] Integración con API de League of Legends (LCU API / Riot API)
+- [ ] Integración con LCU API y Riot API
 
-## Stack técnico (propuesta preliminar)
+## Stack técnico (definido)
 
-### Concepto de arquitectura
-1. **PC:** Ejecutable (.exe) que corre un servidor web local con interfaz
-2. **Emparejamiento:** El .exe genera un código QR con la IP local + token
-3. **Móvil:** El usuario escanea el QR con su teléfono, abriendo una página web
-4. **Comunicación:** El teléfono se conecta al servidor local del PC vía WebSocket/REST
+| Capa | Tecnología | Justificación |
+|------|-----------|---------------|
+| Backend (servidor local) | Node.js + TypeScript | Librería `league-connect` para LCU auth, Express + ws, rápido de prototipar |
+| Frontend (web móvil) | React + Vite | Liviano en móvil, ecosistema, fácil prototipado |
+| Desktop .exe | Node.js compilado con `pkg` | Binario único, sin dependencias externas, distribución simple |
+| Comunicación PC-teléfono | WebSocket | Tiempo real para eventos del juego |
+| Base de datos | SQLite (`better-sqlite3`) | Datos locales de perfiles/runas, embebido, sin servidor |
+| QR | `qrcode` (npm) | Generación de QR desde Node |
 
-### Opciones de stack (por decidir)
+## Arquitectura
 
-| Capa | Opciones | 
-|------|----------|
-| Backend (servidor local) | Node.js, Python, Go, C# |
-| Frontend (web móvil) | React, Vue, Svelte, HTML+JS vanilla |
-| Cliente .exe | Electron, Tauri, PyInstaller, .NET |
-| Base de datos | SQLite, JSON local, IndexedDB |
-| Comunicación | WebSocket, REST, SSE |
+```
+PC (Windows)
+┌─────────────────────────────────────────────────┐
+│  LeagueHelper.exe (Node.js + pkg)               │
+│                                                   │
+│  ┌──────────────┐    ┌───────────────────────┐   │
+│  │ Servidor HTTP │◄──►│ LCU Bridge           │◄──┤ LCU API
+│  │ (Express)     │    │ - auth automática    │   │ (localhost)
+│  │ - API REST    │    │ - WebSocket listener │   │
+│  │ - WebSocket   │    │ - proxy de eventos   │   │
+│  │ - Frontend    │    └───────────────────────┘   │
+│  │   estático    │                                 │
+│  └──────┬───────┘                                 │
+│         │                                          │
+│    Muestra QR (IP + token)                         │
+└─────────┼─────────────────────────────────────────┘
+          │ Escanea QR
+          ▼
+┌──────────────────────┐
+│  Teléfono (Browser)  │
+│  React App (PWA)     │
+│  - Aceptar partida   │
+│  - Elegir campeón    │
+│  - Runas/spells/skin │
+│  - Sugerencias       │
+└──────────────────────┘
+```
 
-## Investigación necesaria
+## Investigación realizada
 
 ### LCU API
-- ¿Cómo autenticarse con el cliente de League?
-- ¿Qué endpoints permiten aceptar partida, seleccionar campeón, runas, etc.?
-- ¿Manejo de certificados autofirmados?
-- ¿Cómo detectar eventos (llegó partida, turno de selección, etc.)?
+- **Autenticación:** Basic Auth (`riot:{password}`), puerto y password cambian cada sesión — se obtienen del proceso `LeagueClientUx.exe` (lockfile en `C:\Users\...\Riot Games\League Client\lockfile`)
+- **HTTPS autofirmado:** Necesario ignorar errores SSL o usar el certificado de Riot
+- **WebSocket:** Protocolo WAMP 1.0. Opcode 5 = suscribirse, 8 = evento recibido
+- **Eventos clave:** `OnJsonApiEvent_lol-gameflow_v1_gameflow-phase` para cambios de estado; `OnJsonApiEvent_lol-champ-select_v1_session` para champ select
+- **Endpoints clave:**
+  - `POST /lol-matchmaking/v1/ready-check/accept` — aceptar partida
+  - `GET /lol-champ-select/v1/session` — obtener sesión de champ select
+  - `PATCH /lol-champ-select/v1/session/my-selection` — cambiar campeón, hechizos, skin
+  - `GET/POST/DELETE /lol-perks/v1/pages` — CRUD de páginas de runas
+  - `PUT /lol-perks/v1/currentpage` — activar página de runas
+  - `GET /lol-summoner/v1/current-summoner` — datos del invocador
+- **Librería existente:** `league-connect` (npm) facilita autenticación, WS y peticiones
 
 ### Riot API
-- ¿Se puede obtener datos de campeones, runas, perfiles de invocador?
-- Rate limits y autenticación
-- ¿Endpoint para sugerencias de campeón?
+- API oficial pública con rate limits
+- Datos de campeones, runas, partidas, perfiles
+- Requiere API key (registrarse en developer.riotgames.com)
+- **Data Dragon:** Datos estáticos de campeones, runas, skins (sin API key)
 
 ### Sugerencias de campeón
-- Fuente de datos: ¿Riot API, datos estáticos, ML, reglas?
-- ¿Cómo obtener counter matchups y sinergias?
-- ¿Base de datos externa (op.gg, u.gg, etc.) o cálculo propio?
+- Fuente de datos: Riot API (perfil, mastery) + Community Dragon (runas) + lógica de counter matchup
+- Se puede implementar como reglas basadas en datos estáticos + perfil del jugador
+- Sin necesidad de ML en v1; usar datos de winrates públicos o lógica de counters
 
-## Preguntas abiertas
-
-### Stack
-- ¿Qué lenguaje/framework es más rápido de prototipar para el backend local?
-- ¿Electron o Tauri para el .exe? (Tauri es más ligero, Electron más conocido)
-- ¿Framework frontend o vanilla? (necesitamos buena UI en móvil)
-
-### Seguridad
-- ¿Cómo proteger el token del QR para que solo ese teléfono acceda?
-- ¿El servidor local debe tener HTTPS? (la LCU API ya requiere HTTPS local)
-- ¿Manejo seguro del puerto y firewall?
-
-### Multi-cuenta
-- No se refiere a múltiples clientes de League abiertos
-- Se refiere a tener perfiles guardados (runas, páginas, picks favoritos) para distintas cuentas de Riot
-
-## Roadmap
-- [ ] Investigar LCU API a fondo
-- [ ] Decidir stack técnico
-- [ ] Prototipo: servidor local que expone endpoints de la LCU API
-- [ ] Prototipo: frontend web básico
-- [ ] Generación de QR y emparejamiento
-- [ ] Editor de runas manual y sugerido
-- [ ] Sugerencia de campeón
-- [ ] Modos automático y manual
-- [ ] Pruebas y despliegue
-
-## Notas
-*Sesión de planning inicial completada. Pendiente de definir stack y hacer investigación técnica.*
+## Notas adicionales
+- El plan detallado con sprints y validaciones está en `PLAN_DESARROLLO.md`
+- Ver `CONFIG.md` para la configuración del modelo/entrenamiento
