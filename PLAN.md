@@ -1,50 +1,84 @@
 # LeagueHelper — Plan del Proyecto
 
 ## Objetivo
-Herramienta que permite al usuario de **League of Legends** interactuar con el cliente del juego desde el teléfono móvil para:
-- Aceptar partidas automática/remotamente
-- Elegir campeón, skin, runas y summoner spells
-- Gestionar la selección sin estar frente al PC
+Herramienta que permite al usuario de **League of Legends** gestionar toda la selección de partida desde el teléfono móvil:
+- Aceptar/rechazar partidas
+- Elegir campeón (con sugerencias inteligentes)
+- Configurar runas (manual o sugeridas)
+- Elegir skin y summoner spells
+- Sin necesidad de estar frente al PC
 
 ## Funcionalidades principales
-- [ ] Cliente móvil (app/web) para interactuar con el juego
-- [ ] Servidor intermedio que se comunique con el cliente de League
-- [ ] Integración con la API de League of Legends (Riot API / LCU API)
-- [ ] Sistema de autenticación y vinculación PC-teléfono
-- [ ] Interfaz para selección de campeón, skin, runas y hechizos
-- [ ] Notificaciones push cuando llegue una partida
+- [ ] **Sugerencia de campeón inteligente:** basada en el perfil del jugador, picks del equipo enemigo y aliado, sinergia, counter matchups y composición de equipo
+- [ ] **Aceptar partida** desde el teléfono
+- [ ] **Selección de campeón, skin, runas y summoner spells** desde el móvil
+- [ ] **Editor de runas manual** con opción de runas sugeridas/predeterminadas (como en el cliente)
+- [ ] **Modos de operación:** automático (acepta todo sin preguntar) y manual (notifica y espera confirmación)
+- [ ] **Sistema de emparejamiento PC-teléfono** vía código QR
+- [ ] Integración con API de League of Legends (LCU API / Riot API)
 
-## Preguntas abiertas / Decisiones pendientes
+## Stack técnico (propuesta preliminar)
 
-### Stack técnico
-- **App móvil:** ¿App nativa (Kotlin/Swift), multiplataforma (Flutter/React Native) o web (PWA)?
-- **Backend:** ¿Node.js, Python (FastAPI), Go, C#?
-- **Comunicación con el cliente de League:** ¿WebSocket, REST, gRPC?
-- **Base de datos:** ¿SQLite, PostgreSQL, Firebase?
-- **Autenticación:** ¿Cuentas propias, OAuth con Riot, o ambas?
+### Concepto de arquitectura
+1. **PC:** Ejecutable (.exe) que corre un servidor web local con interfaz
+2. **Emparejamiento:** El .exe genera un código QR con la IP local + token
+3. **Móvil:** El usuario escanea el QR con su teléfono, abriendo una página web
+4. **Comunicación:** El teléfono se conecta al servidor local del PC vía WebSocket/REST
 
-### Arquitectura
-- ¿Servidor propio en la red local (LAN) o servidor en la nube?
-- Si es en LAN, ¿cómo se descubre el PC desde el teléfono?
-- Si es en la nube, ¿cómo manejamos la seguridad de las credenciales de Riot?
+### Opciones de stack (por decidir)
 
-### API de League
-- ¿Usar LCU API (League Client Update API) o Riot API oficial?
-- LCU API requiere el cliente abierto y autenticado — ¿cómo mantener la sesión?
-- ¿Qué endpoints son necesarios exactamente?
+| Capa | Opciones | 
+|------|----------|
+| Backend (servidor local) | Node.js, Python, Go, C# |
+| Frontend (web móvil) | React, Vue, Svelte, HTML+JS vanilla |
+| Cliente .exe | Electron, Tauri, PyInstaller, .NET |
+| Base de datos | SQLite, JSON local, IndexedDB |
+| Comunicación | WebSocket, REST, SSE |
 
-### Experiencia de usuario
-- ¿Pantalla con lista de runas predefinidas o editor completo?
-- ¿Soporte para múltiples cuentas/perfiles?
-- ¿Modo automático (aceptar siempre) vs. modo manual (notificar y esperar confirmación)?
+## Investigación necesaria
+
+### LCU API
+- ¿Cómo autenticarse con el cliente de League?
+- ¿Qué endpoints permiten aceptar partida, seleccionar campeón, runas, etc.?
+- ¿Manejo de certificados autofirmados?
+- ¿Cómo detectar eventos (llegó partida, turno de selección, etc.)?
+
+### Riot API
+- ¿Se puede obtener datos de campeones, runas, perfiles de invocador?
+- Rate limits y autenticación
+- ¿Endpoint para sugerencias de campeón?
+
+### Sugerencias de campeón
+- Fuente de datos: ¿Riot API, datos estáticos, ML, reglas?
+- ¿Cómo obtener counter matchups y sinergias?
+- ¿Base de datos externa (op.gg, u.gg, etc.) o cálculo propio?
+
+## Preguntas abiertas
+
+### Stack
+- ¿Qué lenguaje/framework es más rápido de prototipar para el backend local?
+- ¿Electron o Tauri para el .exe? (Tauri es más ligero, Electron más conocido)
+- ¿Framework frontend o vanilla? (necesitamos buena UI en móvil)
+
+### Seguridad
+- ¿Cómo proteger el token del QR para que solo ese teléfono acceda?
+- ¿El servidor local debe tener HTTPS? (la LCU API ya requiere HTTPS local)
+- ¿Manejo seguro del puerto y firewall?
+
+### Multi-cuenta
+- No se refiere a múltiples clientes de League abiertos
+- Se refiere a tener perfiles guardados (runas, páginas, picks favoritos) para distintas cuentas de Riot
 
 ## Roadmap
-- [ ] Definir stack técnico
-- [ ] Investigar la LCU API y sus capacidades
-- [ ] Prototipo: servidor local que exponga endpoints
-- [ ] Prototipo: cliente móvil básico
-- [ ] Integración completa PC-teléfono
+- [ ] Investigar LCU API a fondo
+- [ ] Decidir stack técnico
+- [ ] Prototipo: servidor local que expone endpoints de la LCU API
+- [ ] Prototipo: frontend web básico
+- [ ] Generación de QR y emparejamiento
+- [ ] Editor de runas manual y sugerido
+- [ ] Sugerencia de campeón
+- [ ] Modos automático y manual
 - [ ] Pruebas y despliegue
 
 ## Notas
-*Decisión de stack técnico pendiente — se requiere investigación y discusión.*
+*Sesión de planning inicial completada. Pendiente de definir stack y hacer investigación técnica.*

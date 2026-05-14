@@ -40,9 +40,21 @@ Opciones a considerar:
 - **Base de datos:** SQLite, PostgreSQL, Firebase, Supabase
 - **Autenticación:** JWT, OAuth, Riot OAuth
 
+### Arquitectura propuesta
+1. **PC:** Ejecutable (.exe) que inicia un servidor web local y genera un código QR
+2. **Emparejamiento:** QR contiene IP local + token de sesión; el teléfono lo escanea
+3. **Móvil:** El QR abre una página web en el teléfono con toda la interfaz
+4. **Comunicación:** WebSocket/REST entre el navegador del teléfono y el servidor local del PC
+
 ### Integración clave
 - **LCU API (League Client Update API):** API local del cliente de League of Legends. Se comunica vía WebSocket + REST en `localhost`. Requiere el cliente abierto y autenticado. Usa certificados autofirmados (necesario manejar HTTPS local).
-- **Riot API oficial:** API pública de Riot Games para datos de invocadores, partidas, etc. Rate-limited y requiere API key.
+- **Riot API oficial:** API pública de Riot Games para datos de invocadores, campeones, runas, partidas, etc. Rate-limited y requiere API key.
+
+### Funcionalidades detalladas
+- **Sugerencia de campeón:** Basada en perfil del jugador, picks enemigos/aliados, sinergia, counter matchups y composición de equipo
+- **Editor de runas:** Manual (arrastrar/seleccionar runas) con opción de runas sugeridas predeterminadas para el campeón
+- **Modos:** Automático (acepta sin preguntar) y manual (notifica y espera confirmación)
+- **Multi-cuenta:** Perfiles guardados con distintas configuraciones de runas y páginas para diferentes cuentas Riot (NO múltiples clientes abiertos)
 
 ### Repositorio
 - **URL:** https://github.com/Targetac-ux/LeagueHelper
@@ -91,3 +103,4 @@ Opciones a considerar:
 |-------|--------|
 | 2026-05-13 | Creación inicial del archivo |
 | 2026-05-13 | Actualización con contexto completo del proyecto y rol detallado del modelo |
+| 2026-05-13 | Refinamiento de arquitectura (web + QR + .exe), funcionalidades detalladas |
