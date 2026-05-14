@@ -48,23 +48,23 @@
 **Objetivo:** Conectar con la LCU API del cliente de League of Legends, autenticarse y poder hacer peticiones básicas.
 
 ### Tareas
-- [ ] Implementar módulo que lea el `lockfile` de League Client
-- [ ] Extraer puerto y password del lockfile
-- [ ] Configurar agente HTTPS que ignore certificados autofirmados (con opción configurable)
-- [ ] Implementar función `getCurrentSummoner()` → `GET /lol-summoner/v1/current-summoner`
-- [ ] Implementar función `getGameflowPhase()` → `GET /lol-gameflow/v1/gameflow-phase`
-- [ ] Implementar conexión WebSocket con la LCU vía protocolo WAMP
-- [ ] Suscribirse a `OnJsonApiEvent_lol-gameflow_v1_gameflow-phase`
-- [ ] Mostrar en consola los cambios de fase del juego (None → Lobby → Matchmaking → ReadyCheck → ChampSelect → InGame → etc.)
-- [ ] Implementar reconexión automática si el cliente de League se cierra y vuelve a abrir
-- [ ] Manejo de errores (cliente no abierto, lockfile no encontrado, etc.)
+- [x] Implementar módulo que lea el `lockfile` de League Client (`src/lcu-bridge/lockfile.ts`)
+- [x] Extraer puerto y password del lockfile (parseo + wrapper sobre `league-connect`)
+- [x] Configurar agente HTTPS que ignore certificados autofirmados (lo maneja `league-connect` con `unsafe: true`)
+- [x] Implementar función `getCurrentSummoner()` → `GET /lol-summoner/v1/current-summoner`
+- [x] Implementar función `getGameflowPhase()` → `GET /lol-gameflow/v1/gameflow-phase`
+- [x] Implementar conexión WebSocket con la LCU vía protocolo WAMP (`league-connect`)
+- [x] Suscribirse a eventos de fase del juego (`/lol-gameflow/v1/gameflow-phase`)
+- [x] Mostrar en consola los cambios de fase del juego
+- [x] Implementar reconexión automática (`LeagueClient` events + watch loop)
+- [x] Manejo de errores (graceful degradation si League no está abierto)
 
 ### Validación de salida
-- [ ] Al ejecutar con League abierto, se muestra en consola el nombre del invocador
-- [ ] Se detecta y muestra el cambio de fase del juego en tiempo real
-- [ ] Si se cierra League, el bridge lo detecta y espera reconexión
-- [ ] Si se abre League después de iniciar la app, el bridge conecta automáticamente
-- [ ] Tests unitarios del módulo lockfile parser
+- [ ] ~~Al ejecutar con League abierto, se muestra en consola el nombre del invocador~~ *(Requiere League abierto — el código está listo y el servidor responde `connected: false` cuando no detecta el cliente)*
+- [ ] ~~Se detecta y muestra el cambio de fase del juego en tiempo real~~ *(Requiere League abierto — implementado vía `league-connect` WebSocket)*
+- [ ] ~~Si se cierra League, el bridge lo detecta y espera reconexión~~ *(Implementado con `LeagueClient.on('disconnect')`)*
+- [ ] ~~Si se abre League después de iniciar la app, el bridge conecta automáticamente~~ *(Implementado con `authenticate({ awaitConnection: true })`)*
+- [x] Tests unitarios del módulo lockfile parser (`src/lcu-bridge/lockfile.test.ts`)
 
 ---
 
