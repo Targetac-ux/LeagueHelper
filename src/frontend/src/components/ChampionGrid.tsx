@@ -50,12 +50,14 @@ export function ChampionGrid({ pickableIds, selectedId, onSelect }: Props) {
                 padding: 8,
                 borderRadius: 8,
                 border: isSelected ? '2px solid #3b82f6' : '2px solid transparent',
-                background: isSelected ? '#3b82f620' : '#1e293b',
+                background: isSelected ? '#3b82f650' : '#1e293b',
                 cursor: 'pointer',
                 color: '#f1f5f9',
                 fontSize: 12,
                 textAlign: 'center',
-                transition: 'all 0.15s',
+                WebkitTapHighlightColor: 'transparent',
+                WebkitTouchCallout: 'none',
+                outline: 'none',
               }}
             >
               <div
@@ -82,7 +84,16 @@ export function ChampionGrid({ pickableIds, selectedId, onSelect }: Props) {
                   }}
                 />
               </div>
-              <div style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  color: isSelected ? '#fff' : '#f1f5f9',
+                  fontWeight: isSelected ? 600 : 400,
+                }}
+              >
                 {champ.name}
               </div>
             </button>

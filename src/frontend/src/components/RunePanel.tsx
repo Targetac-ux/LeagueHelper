@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { PerkStyle, PerkPage } from '../../../shared/perks';
 import { STAT_SHARD_SLOTS } from '../../../shared/perks';
 
+const DD_PERK = 'https://ddragon.leagueoflegends.com/cdn/img';
+
 interface Props {
   sessionToken: string;
 }
@@ -193,6 +195,19 @@ export function RunePanel({ sessionToken }: Props) {
   );
 }
 
+function PerkIcon({ icon, name, size }: { icon: string; name: string; size?: number }) {
+  const s = size ?? 28;
+  return (
+    <img
+      src={`${DD_PERK}/${icon}`}
+      alt={name}
+      title={name}
+      style={{ width: s, height: s, borderRadius: 4, objectFit: 'contain' }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+}
+
 function StyleSelector({ label, styles, selectedId, onSelect }: {
   label: string;
   styles: PerkStyle[];
@@ -219,8 +234,14 @@ function StyleSelector({ label, styles, selectedId, onSelect }: {
               fontSize: 12,
               cursor: 'pointer',
               fontWeight: selectedId === style.id ? 600 : 400,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              WebkitTapHighlightColor: 'transparent',
+              outline: 'none',
             }}
           >
+            <PerkIcon icon={style.icon} name={style.name} size={22} />
             {style.name}
           </button>
         ))}
@@ -249,13 +270,19 @@ function RuneSlotRow({ label, runes, selectedId, onSelect }: {
               padding: '6px 10px',
               borderRadius: 6,
               border: selectedId === rune.id ? '2px solid #3b82f6' : '1px solid #334155',
-              background: selectedId === rune.id ? '#3b82f620' : '#1e293b',
+              background: selectedId === rune.id ? '#3b82f650' : '#1e293b',
               color: '#f1f5f9',
               fontSize: 11,
               cursor: 'pointer',
               fontWeight: selectedId === rune.id ? 600 : 400,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              WebkitTapHighlightColor: 'transparent',
+              outline: 'none',
             }}
           >
+            <PerkIcon icon={rune.icon} name={rune.name} size={24} />
             {rune.name}
           </button>
         ))}
@@ -280,14 +307,21 @@ function StatShardRow({ shards, selectedId, onSelect }: {
             padding: '8px 4px',
             borderRadius: 6,
             border: selectedId === shard.id ? '2px solid #3b82f6' : '1px solid #334155',
-            background: selectedId === shard.id ? '#3b82f620' : '#1e293b',
+            background: selectedId === shard.id ? '#3b82f650' : '#1e293b',
             color: '#f1f5f9',
             fontSize: 11,
             cursor: 'pointer',
             textAlign: 'center',
             fontWeight: selectedId === shard.id ? 600 : 400,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 4,
+            WebkitTapHighlightColor: 'transparent',
+            outline: 'none',
           }}
         >
+          <PerkIcon icon={shard.icon} name={shard.name} size={24} />
           {shard.name}
         </button>
       ))}
