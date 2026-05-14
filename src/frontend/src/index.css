@@ -7,4 +7,10 @@ body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

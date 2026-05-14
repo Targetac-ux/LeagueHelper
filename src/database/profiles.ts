@@ -23,13 +23,9 @@ interface Row {
 }
 
 function getDataDir(): string {
-  // Use cwd when running from pkg snapshot, otherwise use project-relative path
   const cwd = process.cwd();
   const cwdData = join(cwd, 'data');
-  if (existsSync(cwdData) || !__dirname.includes('snapshot')) {
-    return cwdData;
-  }
-  return join(__dirname, '..', '..', 'data');
+  return cwdData;
 }
 
 let db: Database.Database;

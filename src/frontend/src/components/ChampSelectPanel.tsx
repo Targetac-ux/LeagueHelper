@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { ChampionGrid } from './ChampionGrid';
 
 interface ChampSelectSession {
-  actions: Array<Array<{ id: number; actorCellId: number; championId: number; type: string; completed: boolean }>>;
-  myTeam: Array<{ cellId: number; championId: number; selectedSkinId: number; spell1Id: number; spell2Id: number }>;
-  localPlayerCellId: number;
-  pickableChampionIds: number[];
-  pickableSkinIds: number[];
-  timer: { timeLeftInPhase: number; phase: string };
+  actions?: Array<Array<{ id: number; actorCellId: number; championId: number; type: string; completed: boolean }>>;
+  myTeam?: Array<{ cellId: number; championId: number; selectedSkinId: number; spell1Id: number; spell2Id: number }>;
+  localPlayerCellId?: number;
+  pickableChampionIds?: number[];
+  pickableSkinIds?: number[];
+  timer?: { timeLeftInPhase: number; phase: string };
 }
 
 interface Props {
@@ -23,28 +23,33 @@ const SPELL_IDS: Record<number, string> = {
 
 export function ChampSelectPanel({ sessionToken }: Props) {
   const [session, setSession] = useState<ChampSelectSession | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [selectedChampion, setSelectedChampion] = useState<number | null>(null);
   const [spells, setSpells] = useState<{ s1: number; s2: number }>({ s1: 0, s2: 0 });
 
-  useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const res = await fetch('/api/champ-select/session', {
-          headers: { 'x-session-token': sessionToken },
-        });
-        if (res.ok) {
-          const data = (await res.json()) as ChampSelectSession;
-          setSession(data);
-          const me = data.myTeam.find((p) => p.cellId === data.localPlayerCellId);
-          if (me) {
-            setSelectedChampion(me.championId !== 0 ? me.championId : null);
-            setSpells({ s1: me.spell1Id, s2: me.spell2Id });
-          }
+  const fetchSession = async () => {
+    setError(null);
+    try {
+      const res = await fetch('/api/champ-select/session', {
+        headers: { 'x-session-token': sessionToken },
+      });
+      if (res.ok) {
+        const data = (await res.json()) as ChampSelectSession;
+        setSession(data);
+        const me = data.myTeam?.find((p) => p.cellId === data.localPlayerCellId);
+        if (me) {
+          setSelectedChampion(me.championId !== 0 ? me.championId : null);
+          setSpells({ s1: me.spell1Id, s2: me.spell2Id });
         }
-      } catch {
-        // ignore
+      } else {
+        setError('Could not load champion select session');
       }
-    };
+    } catch {
+      setError('Failed to connect to server');
+    }
+  };
+
+  useEffect(() => {
     fetchSession();
   }, [sessionToken]);
 
@@ -68,7 +73,7 @@ export function ChampSelectPanel({ sessionToken }: Props) {
   };
 
   const handleLockIn = async () => {
-    if (!session) return;
+    if (!session || !session.actions || session.localPlayerCellId === undefined) return;
     const myAction = session.actions
       .flat()
       .find((a) => a.actorCellId === session.localPlayerCellId && a.type === 'pick' && !a.completed);
@@ -79,13 +84,26 @@ export function ChampSelectPanel({ sessionToken }: Props) {
     });
   };
 
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', padding: 20 }}>
+        <p style={{ color: '#ef4444', fontSize: 14, margin: '0 0 12px' }}>{error}</p>
+        <button onClick={fetchSession} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: '#3b82f6', color: '#fff', fontSize: 14, cursor: 'pointer' }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   if (!session) {
     return <p style={{ color: '#94a3b8', textAlign: 'center' }}>Loading champion select...</p>;
   }
 
-  const timeLeft = Math.max(0, session.timer.timeLeftInPhase);
+  const pickableIds = session.pickableChampionIds ?? [];
+  const hasPickableChampions = pickableIds.length > 0;
+  const timeLeft = Math.max(0, session.timer?.timeLeftInPhase ?? 0);
   const hasAction = session.actions
-    .flat()
+    ?.flat()
     .some((a) => a.actorCellId === session.localPlayerCellId && a.type === 'pick' && !a.completed);
 
   return (
@@ -114,11 +132,17 @@ export function ChampSelectPanel({ sessionToken }: Props) {
         )}
       </div>
 
-      <ChampionGrid
-        pickableIds={session.pickableChampionIds}
-        selectedId={selectedChampion}
-        onSelect={handleChampionSelect}
-      />
+      {hasPickableChampions ? (
+        <ChampionGrid
+          pickableIds={pickableIds}
+          selectedId={selectedChampion}
+          onSelect={handleChampionSelect}
+        />
+      ) : (
+        <p style={{ color: '#64748b', fontSize: 14, textAlign: 'center', padding: 16 }}>
+          Champion selection not available for this game mode
+        </p>
+      )}
 
       <div>
         <p style={{ margin: '0 0 8px', color: '#94a3b8', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>

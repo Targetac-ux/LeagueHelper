@@ -262,40 +262,64 @@ if (frontendDist) {
 
 // Profile CRUD
 app.get('/api/profiles', authMiddleware, (_req, res) => {
-  res.json(getAllProfiles());
+  try {
+    res.json(getAllProfiles());
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load profiles', details: (err as Error).message });
+  }
 });
 
 app.get('/api/profiles/active', authMiddleware, (_req, res) => {
-  const id = getActiveProfileId();
-  const profile = id !== null ? getProfile(id) : null;
-  res.json(profile);
+  try {
+    const id = getActiveProfileId();
+    const profile = id !== null ? getProfile(id) : null;
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load active profile', details: (err as Error).message });
+  }
 });
 
 app.post('/api/profiles', authMiddleware, (req, res) => {
-  const { name } = req.body as { name: string };
-  if (!name) { res.status(400).json({ error: 'Name required' }); return; }
-  const profile = createProfile(name);
-  res.json(profile);
+  try {
+    const { name } = req.body as { name: string };
+    if (!name) { res.status(400).json({ error: 'Name required' }); return; }
+    const profile = createProfile(name);
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create profile', details: (err as Error).message });
+  }
 });
 
 app.put('/api/profiles/:id', authMiddleware, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const profile = updateProfile(id, req.body as Record<string, unknown>);
-  if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
-  res.json(profile);
+  try {
+    const id = parseInt(req.params.id, 10);
+    const profile = updateProfile(id, req.body as Record<string, unknown>);
+    if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update profile', details: (err as Error).message });
+  }
 });
 
 app.delete('/api/profiles/:id', authMiddleware, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const deleted = deleteProfile(id);
-  res.json({ success: deleted });
+  try {
+    const id = parseInt(req.params.id, 10);
+    const deleted = deleteProfile(id);
+    res.json({ success: deleted });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete profile', details: (err as Error).message });
+  }
 });
 
 app.put('/api/profiles/:id/activate', authMiddleware, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!getProfile(id)) { res.status(404).json({ error: 'Profile not found' }); return; }
-  setActiveProfileId(id);
-  res.json({ success: true });
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!getProfile(id)) { res.status(404).json({ error: 'Profile not found' }); return; }
+    setActiveProfileId(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to activate profile', details: (err as Error).message });
+  }
 });
 
 app.use((_req, res) => {
@@ -399,7 +423,7 @@ function broadcast(data: Record<string, unknown>): void {
 // File logging
 function logToFile(msg: string): void {
   try {
-    const logDir = __dirname.includes('snapshot') ? process.cwd() : join(__dirname, '..', '..', 'data');
+    const logDir = join(process.cwd(), 'data');
     if (!existsSync(logDir)) return;
     appendFileSync(join(logDir, 'server.log'), `[${new Date().toISOString()}] ${msg}\n`);
   } catch {
@@ -428,6 +452,14 @@ server.listen(PORT, () => {
     exec(`start ${url}`, (err) => {
       if (err) console.warn('[Server] Could not open browser:', err.message);
     });
+  }
+
+  // Initialize database at startup
+  try {
+    getAllProfiles();
+    console.log('[Server] Database initialized');
+  } catch (err) {
+    console.error('[Server] Database init failed:', (err as Error).message);
   }
 
   bridge.start();
