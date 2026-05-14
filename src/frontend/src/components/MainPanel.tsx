@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGameflow } from '../hooks/useGameflow';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SummonerInfo } from './SummonerInfo';
@@ -7,6 +7,14 @@ import { AcceptButton } from './AcceptButton';
 import { ChampSelectPanel } from './ChampSelectPanel';
 import { RunePanel } from './RunePanel';
 import { SuggestionsPanel } from './SuggestionsPanel';
+import { ProfileManager } from './ProfileManager';
+import { ModeToggle } from './ModeToggle';
+
+interface Profile {
+  id: number;
+  autoMode: boolean;
+  name: string;
+}
 
 interface Props {
   sessionToken: string;
@@ -15,6 +23,17 @@ interface Props {
 export function MainPanel({ sessionToken }: Props) {
   const { connectionState, summoner, phase, champSelectData } = useGameflow(sessionToken);
   const [champSelectTab, setChampSelectTab] = useState<'pick' | 'runes' | 'suggestions'>('pick');
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [profileKey, setProfileKey] = useState(0);
+
+  const reloadProfile = () => {
+    fetch('/api/profiles/active', { headers: { 'x-session-token': sessionToken } })
+      .then((r) => r.json())
+      .then((data) => setActiveProfile(data?.id ? (data as Profile) : null));
+  };
+
+  useEffect(reloadProfile, [sessionToken, profileKey]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -30,6 +49,36 @@ export function MainPanel({ sessionToken }: Props) {
       </header>
 
       <GameflowDisplay phase={phase} />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <ModeToggle
+          sessionToken={sessionToken}
+          activeProfileId={activeProfile?.id ?? null}
+          currentAutoMode={activeProfile?.autoMode ?? false}
+          onModeChange={() => setProfileKey((k) => k + 1)}
+        />
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 6,
+            border: '1px solid #334155',
+            background: showSettings ? '#3b82f620' : '#1e293b',
+            color: '#f1f5f9',
+            fontSize: 12,
+            cursor: 'pointer',
+          }}
+        >
+          {showSettings ? 'Close' : 'Profiles'}
+        </button>
+      </div>
+
+      {showSettings && (
+        <ProfileManager
+          sessionToken={sessionToken}
+          onProfileChange={() => setProfileKey((k) => k + 1)}
+        />
+      )}
 
       {connectionState === 'disconnected' && (
         <div
@@ -63,7 +112,13 @@ export function MainPanel({ sessionToken }: Props) {
       )}
 
       {connectionState === 'connected' && phase === 'ReadyCheck' && (
-        <AcceptButton sessionToken={sessionToken} />
+        activeProfile?.autoMode ? (
+          <div style={{ padding: 16, borderRadius: 8, background: '#22c55e20', border: '1px solid #22c55e30', textAlign: 'center', color: '#22c55e', fontSize: 14 }}>
+            Auto-accepting match...
+          </div>
+        ) : (
+          <AcceptButton sessionToken={sessionToken} />
+        )
       )}
 
       {connectionState === 'connected' && phase === 'ChampSelect' && (

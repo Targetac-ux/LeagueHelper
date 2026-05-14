@@ -7,6 +7,15 @@ import * as QRCode from 'qrcode';
 import { LcuBridge } from '../lcu-bridge/client';
 import { SessionManager } from './session';
 import { getSuggestions } from './suggestions';
+import {
+  getAllProfiles,
+  getProfile,
+  createProfile,
+  updateProfile,
+  deleteProfile,
+  getActiveProfileId,
+  setActiveProfileId,
+} from '../database/profiles';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -233,6 +242,44 @@ app.get('/api/champions', async (_req, res) => {
   }
 });
 
+// Profile CRUD
+app.get('/api/profiles', authMiddleware, (_req, res) => {
+  res.json(getAllProfiles());
+});
+
+app.get('/api/profiles/active', authMiddleware, (_req, res) => {
+  const id = getActiveProfileId();
+  const profile = id !== null ? getProfile(id) : null;
+  res.json(profile);
+});
+
+app.post('/api/profiles', authMiddleware, (req, res) => {
+  const { name } = req.body as { name: string };
+  if (!name) { res.status(400).json({ error: 'Name required' }); return; }
+  const profile = createProfile(name);
+  res.json(profile);
+});
+
+app.put('/api/profiles/:id', authMiddleware, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const profile = updateProfile(id, req.body as Record<string, unknown>);
+  if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
+  res.json(profile);
+});
+
+app.delete('/api/profiles/:id', authMiddleware, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const deleted = deleteProfile(id);
+  res.json({ success: deleted });
+});
+
+app.put('/api/profiles/:id/activate', authMiddleware, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!getProfile(id)) { res.status(404).json({ error: 'Profile not found' }); return; }
+  setActiveProfileId(id);
+  res.json({ success: true });
+});
+
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
@@ -252,12 +299,53 @@ bridge.on('disconnected', () => {
   broadcast({ type: 'bridge:disconnected' });
 });
 
-bridge.on('phaseChanged', (phase) => {
+bridge.on('phaseChanged', async (phase) => {
   broadcast({ type: 'gameflow:phase', phase });
+
+  if (phase === 'ReadyCheck') {
+    const profileId = getActiveProfileId();
+    if (profileId !== null) {
+      const profile = getProfile(profileId);
+      if (profile?.autoMode) {
+        console.log('[Auto] Accepting match...');
+        try {
+          await bridge.makeRequest('POST', '/lol-matchmaking/v1/ready-check/accept');
+          console.log('[Auto] Match accepted');
+        } catch (err) {
+          console.error('[Auto] Accept failed:', (err as Error).message);
+        }
+      }
+    }
+  }
 });
 
-bridge.on('champSelectChanged', (data) => {
+bridge.on('champSelectChanged', async (data) => {
   broadcast({ type: 'champ-select:update', data });
+
+  const profileId = getActiveProfileId();
+  if (profileId === null) return;
+  const profile = getProfile(profileId);
+  if (!profile?.autoMode || profile.preferredChampionIds.length === 0) return;
+
+  const session = data as { actions: Array<Array<{ id: number; actorCellId: number; type: string; completed: boolean }>>; localPlayerCellId: number; myTeam: Array<{ cellId: number; championId: number }> };
+  if (!session?.actions) return;
+
+  const myActions = session.actions.flat().filter((a) => a.actorCellId === session.localPlayerCellId && !a.completed);
+  const pickAction = myActions.find((a) => a.type === 'pick');
+  if (!pickAction) return;
+
+  const alreadyPicked = session.myTeam?.find((p) => p.cellId === session.localPlayerCellId)?.championId;
+  if (alreadyPicked && alreadyPicked !== 0) return;
+
+  const preferredId = profile.preferredChampionIds[0];
+  console.log(`[Auto] Picking champion ${preferredId}...`);
+  try {
+    await bridge.makeRequest('PATCH', '/lol-champ-select/v1/session/my-selection', { championId: preferredId });
+    await bridge.makeRequest('POST', `/lol-champ-select/v1/session/actions/${pickAction.id}/complete`);
+    console.log('[Auto] Champion picked and locked');
+  } catch (err) {
+    console.error('[Auto] Pick failed:', (err as Error).message);
+  }
 });
 
 bridge.on('error', (err) => {

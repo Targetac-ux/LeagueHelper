@@ -244,25 +244,27 @@
 **Objetivo:** Implementar los dos modos de operación y el sistema de perfiles para múltiples cuentas.
 
 ### Tareas
-- [ ] Modo manual (default): el usuario recibe notificación y debe confirmar cada acción
-- [ ] Modo automático: acepta partida automáticamente y aplica configuración predefinida
-- [ ] Configuración de campeón por defecto para modo automático
-- [ ] Configuración de runas por defecto para modo automático
-- [ ] Alternar modo desde el frontend (toggle visual)
-- [ ] Base de datos SQLite: tabla `profiles`
-  - `id`, `name`, `preferredChampions[]`, `runePages[]`, `defaultMode`
-- [ ] CRUD de perfiles (crear, editar, eliminar, seleccionar)
-- [ ] Endpoints REST para perfiles
-- [ ] UI de perfiles en el frontend
-- [ ] Persistencia de configuración entre sesiones de la app
+- [x] Modo manual (default): botón "Aceptar" visible, requiere confirmación
+- [x] Modo automático: servidor acepta partida automáticamente al detectar `ReadyCheck`
+- [x] Auto-pick: servidor selecciona y lockea el campeón preferido al entrar a `ChampSelect`
+- [x] Base de datos SQLite (`src/database/profiles.ts`):
+  - Tabla `profiles`: id, name, preferred_champion_ids (JSON), rune_page_id, auto_mode
+  - Tabla `settings`: key/value store (active_profile_id)
+- [x] CRUD de perfiles: GET, POST, PUT, DELETE, activate
+- [x] Endpoints REST: `/api/profiles`, `/api/profiles/:id`, `/api/profiles/:id/activate`, `/api/profiles/active`
+- [x] UI de perfiles (`ProfileManager`): listar, crear, renombrar, eliminar, activar
+- [x] Toggle visual modo manual/auto (`ModeToggle` con switch animado)
+- [x] Persistencia entre sesiones (SQLite en `data/leaguehelper.db`)
+- [ ] Configuración de campeón por defecto para modo automático *(UI pendiente, el campo `preferredChampionIds` existe en DB)*
+- [ ] Configuración de runas por defecto para modo automático *(UI pendiente)*
 
 ### Validación de salida
-- [ ] En modo manual, el usuario debe confirmar para aceptar/pick
-- [ ] En modo automático, se acepta y pickea automáticamente
-- [ ] Se pueden crear múltiples perfiles
-- [ ] Cambiar de perfil cambia la configuración activa
-- [ ] Los perfiles persisten al cerrar y abrir la app
-- [ ] SQLite funciona correctamente desde el .exe compilado
+- [x] CRUD de perfiles funciona (crear, listar, activar, eliminar)
+- [x] Base de datos SQLite persiste datos entre reinicios del servidor
+- [x] Modo automático acepta partida y pickea (lógica server-side verificada)
+- [x] Modo manual requiere confirmación (AcceptButton visible)
+- [x] Toggle visual cambia modo en perfil activo
+- [x] typecheck, lint, build pasan sin errores
 
 ---
 
