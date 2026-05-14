@@ -73,26 +73,26 @@
 **Objetivo:** Crear el servidor HTTP/WebSocket que servirá como puente entre el teléfono y la LCU API.
 
 ### Tareas
-- [ ] Crear servidor Express con TypeScript
-- [ ] Configurar CORS para permitir conexiones desde cualquier origen (la IP del teléfono)
-- [ ] Implementar WebSocket server con `ws`
-- [ ] Crear endpoints REST que delegan a la LCU API:
+- [x] Crear servidor Express con TypeScript
+- [x] Configurar CORS para permitir conexiones desde cualquier origen (`app.use(cors())`)
+- [x] Implementar WebSocket server con `ws`
+- [x] Crear endpoints REST que delegan a la LCU API:
   - `GET /api/summoner` → datos del invocador
   - `GET /api/gameflow/phase` → fase actual del juego
   - `GET /api/champ-select/session` → sesión de champ select
-- [ ] Crear WebSocket que emita eventos de la LCU al frontend:
+- [x] Crear WebSocket que emita eventos de la LCU al frontend:
   - `gameflow:phase` → cambio de fase
   - `champ-select:update` → cambios en champ select
-- [ ] Health check: `GET /api/health`
-- [ ] Logging estructurado (morgan o pino)
-- [ ] Manejo de errores global con middleware Express
+- [x] Health check: `GET /api/health`
+- [x] Logging estructurado (`morgan`)
+- [x] Manejo de errores global con middleware Express (404 + error handler)
 
 ### Validación de salida
-- [ ] `GET /api/health` responde `200 OK`
-- [ ] `GET /api/summoner` devuelve datos del invocador
-- [ ] Cliente WebSocket se conecta y recibe eventos `gameflow:phase`
-- [ ] Servidor maneja errores gracefulmente (no crashea)
-- [ ] CORS funciona desde un origen externo (simulado)
+- [x] `GET /api/health` responde `200 OK`
+- [x] `GET /api/summoner` devuelve datos del invocador (o `503` si no conectado)
+- [x] Cliente WebSocket se conecta y recibe eventos `gameflow:phase`
+- [x] Servidor maneja errores gracefulmente (404 y error handler global)
+- [x] CORS funciona desde un origen externo (test en `src/server/cors.test.ts`)
 
 ---
 

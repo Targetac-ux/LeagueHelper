@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import morgan from 'morgan';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import { LcuBridge } from '../lcu-bridge/client';
@@ -12,6 +13,7 @@ const wss = new WebSocketServer({ server });
 
 const bridge = new LcuBridge();
 
+app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json());
 
@@ -33,6 +35,28 @@ app.get('/api/gameflow/phase', (_req, res) => {
   res.json({ phase: bridge.currentState.phase });
 });
 
+app.get('/api/champ-select/session', async (_req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const session = await bridge.makeRequest('GET', '/lol-champ-select/v1/session');
+    res.json(session);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch champ select session', details: (err as Error).message });
+  }
+});
+
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[Server] Unhandled error:', err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 bridge.on('connected', (summoner) => {
   console.log(`[Server] Bridge connected: ${summoner.displayName}`);
   broadcast({ type: 'bridge:connected', summoner });
@@ -45,6 +69,10 @@ bridge.on('disconnected', () => {
 
 bridge.on('phaseChanged', (phase) => {
   broadcast({ type: 'gameflow:phase', phase });
+});
+
+bridge.on('champSelectChanged', (data) => {
+  broadcast({ type: 'champ-select:update', data });
 });
 
 bridge.on('error', (err) => {

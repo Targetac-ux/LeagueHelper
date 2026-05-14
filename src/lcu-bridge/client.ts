@@ -128,6 +128,13 @@ export class LcuBridge extends EventEmitter {
       },
     );
 
+    this.ws.subscribe(
+      '/lol-champ-select/v1/session',
+      (data) => {
+        this.emit('champSelectChanged', data);
+      },
+    );
+
     console.log('[LCU Bridge] WebSocket connected and subscribed');
   }
 
