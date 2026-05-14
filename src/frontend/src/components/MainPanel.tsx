@@ -10,6 +10,8 @@ import { SuggestionsPanel } from './SuggestionsPanel';
 import { ProfileManager } from './ProfileManager';
 import { ModeToggle } from './ModeToggle';
 
+const APP_VERSION = '1.0.0';
+
 interface Profile {
   id: number;
   autoMode: boolean;
@@ -24,6 +26,7 @@ export function MainPanel({ sessionToken }: Props) {
   const { connectionState, summoner, phase, champSelectData } = useGameflow(sessionToken);
   const [champSelectTab, setChampSelectTab] = useState<'pick' | 'runes' | 'suggestions'>('pick');
   const [showSettings, setShowSettings] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [profileKey, setProfileKey] = useState(0);
 
@@ -148,6 +151,51 @@ export function MainPanel({ sessionToken }: Props) {
           Waiting for game events...
         </div>
       )}
+
+      <footer style={{ display: 'flex', justifyContent: 'center', gap: 12, padding: '12px 0', borderTop: '1px solid #1e293b', marginTop: 8 }}>
+        {showAbout && (
+          <div
+            style={{
+              position: 'fixed', inset: 0, background: '#00000080', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24,
+            }}
+            onClick={() => setShowAbout(false)}
+          >
+            <div
+              style={{
+                background: '#1e293b', borderRadius: 12, padding: 24, maxWidth: 320, width: '100%',
+                border: '1px solid #334155', color: '#f1f5f9', fontSize: 14,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>LeagueHelper</h3>
+              <p style={{ margin: '4px 0', color: '#94a3b8' }}>v{APP_VERSION}</p>
+              <p style={{ margin: '12px 0', color: '#cbd5e1', lineHeight: 1.5 }}>
+                Controla la selección de campeones de League of Legends desde tu teléfono.
+              </p>
+              <p style={{ margin: '4px 0', color: '#64748b', fontSize: 12 }}>
+                {new URL('/api/health', window.location.origin).host}
+              </p>
+              <p style={{ margin: '12px 0 0', color: '#64748b', fontSize: 12 }}>
+                MIT License &mdash; <a href="https://github.com/Targetac-ux/LeagueHelper" target="_blank" rel="noopener" style={{ color: '#3b82f6' }}>GitHub</a>
+              </p>
+              <button
+                onClick={() => setShowAbout(false)}
+                style={{
+                  marginTop: 16, width: '100%', padding: '8px 0', borderRadius: 6,
+                  border: '1px solid #334155', background: '#0f172a', color: '#f1f5f9',
+                  fontSize: 13, cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+        <button onClick={() => setShowAbout(true)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+          About LeagueHelper
+        </button>
+      </footer>
     </div>
   );
 }

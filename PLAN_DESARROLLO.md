@@ -310,25 +310,27 @@
 **Objetivo:** Preparar el proyecto para distribución pública o uso personal.
 
 ### Tareas
-- [ ] Escribir README.md con instrucciones de uso
-- [ ] Documentar cómo obtener API key de Riot (opcional)
-- [ ] Documentar requisitos del sistema (Windows, League instalado, red WiFi)
-- [ ] Crear release en GitHub con el .exe comprimido
-- [ ] Escribir guía de troubleshooting (puertos, firewall, antivirus)
-- [ ] Considerar firma de código (Authenticode) para reducir falsos positivos
-- [ ] Agregar pantalla "Acerca de" en la app con versión
-- [ ] Check de actualizaciones (opcional: GitHub Releases API)
-- [ ] Code cleanup final y revisión de seguridad:
-  - [ ] No hay tokens hardcodeados
-  - [ ] No hay credenciales en logs
-  - [ ] El token de sesión es seguro
-  - [ ] El servidor no expone rutas sensibles sin auth
+- [x] Escribir README.md con instrucciones de uso, requisitos, troubleshooting
+- [x] Documentar requisitos del sistema (Windows, League instalado, red WiFi)
+- [x] Crear release en GitHub con el .exe comprimido (.zip)
+- [x] Crear MANUAL.md — guía paso a paso para el usuario final
+- [x] Crear TO-DO.md — checklist de pruebas manuales post-instalación
+- [x] Agregar pantalla "About" en la app con versión
+- [x] Code cleanup final y revisión de seguridad:
+  - [x] No hay tokens hardcodeados
+  - [x] No hay credenciales en logs
+  - [x] El token de sesión es seguro (UUID v4, 5min caducidad, single-use)
+  - [x] El servidor no expone rutas sensibles sin auth (authMiddleware)
+- [x] Actualizar versión a 1.0.0
+- [x] Actualizar PLAN.md con estado actual
 
 ### Validación de salida
-- [ ] README completo con pasos de instalación y uso
-- [ ] Release creado en GitHub con .exe
-- [ ] Alguien nuevo puede seguir el README y usar la app
-- [ ] No hay información sensible en el repositorio
+- [x] README completo con pasos de instalación y uso
+- [x] MANUAL.md detallado con capturas textuales
+- [x] TO-DO.md con pruebas manuales documentadas
+- [x] Release v1.0.0 creado en GitHub con .exe
+- [x] Alguien nuevo puede seguir el README y usar la app
+- [x] No hay información sensible en el repositorio
 
 ---
 
