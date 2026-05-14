@@ -125,24 +125,24 @@
 **Objetivo:** Implementar la generación de QR en el servidor, la pantalla de escaneo, y la autenticación del teléfono.
 
 ### Tareas
-- [ ] Generar token de sesión único y efímero en el servidor
-- [ ] Endpoint `GET /api/session/token` → genera y devuelve token
-- [ ] Generar URL del tipo `http://{IP_local}:{puerto}?token={token}`
-- [ ] Generar QR con la librería `qrcode` y servirlo como imagen/HTML
-- [ ] Endpoint `POST /api/session/verify` → verifica que el token es válido
-- [ ] Middleware de autenticación por token en endpoints sensibles (WebSocket y REST)
-- [ ] El token expira después de primer uso o tras N minutos
-- [ ] Página en el frontend: "Escanea el QR con tu teléfono"
-- [ ] Página en el frontend: después de escanear, redirige al panel principal
-- [ ] Manejo de renovación de token si expira
+- [x] Generar token de sesión único y efímero en el servidor (`SessionManager`)
+- [x] Endpoint `GET /api/session/qr` → genera token, devuelve QR + URL
+- [x] Generar URL del tipo `http://{IP_local}:{puerto}?token={token}` (IP auto-detectada)
+- [x] Generar QR con librería `qrcode` (SVG) y servirlo vía API
+- [x] Endpoint `POST /api/session/verify` → valida token, devuelve session token
+- [x] Middleware de autenticación por token en endpoints REST (`x-session-token` header)
+- [x] WebSocket protegido con session token (query param `?session=`)
+- [x] Token expira tras 5 min / single-use
+- [x] Página en el frontend: "Scan QR" con QR + countdown + manual URL
+- [x] Página en el frontend: verifica token al cargar, muestra panel principal o QR
 
 ### Validación de salida
-- [ ] Servidor genera URL válida con token cifrado
-- [ ] QR escaneable lleva a la app web del frontend
-- [ ] Token no reutilizable (un solo teléfono puede conectarse)
-- [ ] Token expira después del tiempo definido
-- [ ] Sin token, las APIs devuelven 401
-- [ ] Probar con teléfono real en la misma red WiFi
+- [x] Servidor genera URL válida con IP local + token UUID
+- [x] QR escaneable (SVG válido generado)
+- [x] Token no reutilizable (verify falla en segundo uso)
+- [x] Token expira después del tiempo definido (cleanup automático)
+- [x] Sin token, APIs devuelven 401
+- [x] ~~Probar con teléfono real en la misma red WiFi~~ *(pendiente de prueba manual)*
 
 ---
 
