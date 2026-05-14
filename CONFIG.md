@@ -139,3 +139,4 @@ Herramienta que permite al usuario de League of Legends gestionar la selección 
 | 2026-05-13 | Refinamiento de arquitectura (web + QR + .exe), funcionalidades detalladas |
 | 2026-05-13 | Stack definido (Node.js/TS + React + Vite + pkg + SQLite), detalles LCU API |
 | 2026-05-13 | Refinamiento final. Sprint plan movido a PLAN_DESARROLLO.md |
+| 2026-05-13 | Sprint 0 completado: proyecto inicializado con Node.js/TS + React/Vite + ESLint/Prettier |

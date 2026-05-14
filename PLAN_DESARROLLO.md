@@ -18,9 +18,9 @@
 **Objetivo:** Crear la estructura base del proyecto con herramientas, dependencias y configuración.
 
 ### Tareas
-- [ ] Inicializar proyecto Node.js con TypeScript (`tsconfig.json` estricto)
-- [ ] Configurar ESLint + Prettier
-- [ ] Crear estructura de carpetas:
+- [x] Inicializar proyecto Node.js con TypeScript (`tsconfig.json` estricto)
+- [x] Configurar ESLint + Prettier
+- [x] Crear estructura de carpetas:
   ```
   /src
     /server     → Servidor Express + WebSocket
@@ -29,17 +29,17 @@
     /shared     → Tipos comunes
     /database   → SQLite
   ```
-- [ ] Configurar Vite + React para el frontend
-- [ ] Configurar `pkg` para compilación futura
-- [ ] Agregar script de dev que corra server + frontend simultáneamente (`concurrently`)
-- [ ] Crear archivo de tipos compartidos (`shared/types.ts`)
-- [ ] Hacer commit inicial de la estructura
+- [x] Configurar Vite + React para el frontend
+- [x] Configurar `pkg` para compilación futura (añadido como dependencia, config en package.json preparada)
+- [x] Agregar script de dev que corra server + frontend simultáneamente (`concurrently`)
+- [x] Crear archivo de tipos compartidos (`shared/types.ts`)
+- [x] Hacer commit inicial de la estructura
 
 ### Validación de salida
-- [ ] `npm run dev` levanta server + frontend sin errores
-- [ ] TypeScript compila sin errores (`tsc --noEmit`)
-- [ ] ESLint pasa sin warnings
-- [ ] Se puede acceder al frontend desde `http://localhost:5173`
+- [x] `npm run dev` levanta server + frontend sin errores
+- [x] TypeScript compila sin errores (`tsc --noEmit`)
+- [x] ESLint pasa sin warnings
+- [x] Se puede acceder al frontend desde `http://localhost:5173`
 
 ---
 
