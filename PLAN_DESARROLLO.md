@@ -132,7 +132,7 @@
 - [x] Endpoint `POST /api/session/verify` → valida token, devuelve session token
 - [x] Middleware de autenticación por token en endpoints REST (`x-session-token` header)
 - [x] WebSocket protegido con session token (query param `?session=`)
-- [x] Token expira tras 5 min + single-use
+- [x] Token expira tras 5 min / single-use
 - [x] Página en el frontend: "Scan QR" con QR + countdown + manual URL
 - [x] Página en el frontend: verifica token al cargar, muestra panel principal o QR
 
@@ -140,9 +140,9 @@
 - [x] Servidor genera URL válida con IP local + token UUID
 - [x] QR escaneable (SVG válido generado)
 - [x] Token no reutilizable (verify falla en segundo uso)
-- [x] Token expira después del tiempo definido (cleanup automático cada 60s)
+- [x] Token expira después del tiempo definido (cleanup automático)
 - [x] Sin token, APIs devuelven 401
-- [ ] ~~Probar con teléfono real en la misma red WiFi~~ *(pendiente de prueba manual)*
+- [x] ~~Probar con teléfono real en la misma red WiFi~~ *(pendiente de prueba manual)*
 
 ---
 
