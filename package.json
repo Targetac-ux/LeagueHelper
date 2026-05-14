@@ -1,8 +1,10 @@
 {
   "name": "league-helper",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "League of Legends remote helper - manage champ select from your phone",
+  "main": "dist/server/index.js",
+  "bin": "dist/server/index.js",
   "scripts": {
     "dev": "concurrently -n server,frontend -c blue,green \"npm run dev:server\" \"npm run dev:frontend\"",
     "dev:server": "tsx watch src/server/index.ts",
@@ -10,9 +12,20 @@
     "build": "npm run build:frontend && npm run build:server",
     "build:server": "tsc -p tsconfig.json",
     "build:frontend": "npm --prefix src/frontend run build",
+    "bundle": "npm run build:frontend && npm run build:server && npx @yao-pkg/pkg package.json --output dist/LeagueHelper.exe --public --target node22-win",
     "lint": "eslint src/ --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\""
+  },
+  "pkg": {
+    "scripts": "dist/server/index.js",
+    "assets": [
+      "src/frontend/dist/**/*",
+      "node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+    ],
+    "targets": [
+      "node22-win"
+    ]
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
@@ -35,6 +48,7 @@
     "@types/ws": "^8.5.12",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "@yao-pkg/pkg": "^6.19.0",
     "concurrently": "^9.0.0",
     "eslint": "^8.57.0",
     "pkg": "^5.8.1",

@@ -3,7 +3,22 @@ import cors from 'cors';
 import morgan from 'morgan';
 import http from 'http';
 import { WebSocketServer } from 'ws';
+import * as QRCode from 'qrcode';
+import { exec } from 'child_process';
+import { join } from 'path';
+import { appendFileSync, existsSync } from 'fs';
 import { LcuBridge } from '../lcu-bridge/client';
+import { SessionManager } from './session';
+import { getSuggestions } from './suggestions';
+import {
+  getAllProfiles,
+  getProfile,
+  createProfile,
+  updateProfile,
+  deleteProfile,
+  getActiveProfileId,
+  setActiveProfileId,
+} from '../database/profiles';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -12,17 +27,49 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const bridge = new LcuBridge();
+const sessions = new SessionManager();
 
 app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json());
+
+function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const token = req.headers['x-session-token'] as string | undefined;
+  if (!token || !sessions.validateSession(token)) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next();
+}
 
 app.get('/api/health', (_req, res) => {
   const state = bridge.currentState;
   res.json({ status: 'ok', connected: state.connected, phase: state.phase, timestamp: Date.now() });
 });
 
-app.get('/api/summoner', (_req, res) => {
+app.get('/api/session/qr', async (_req, res) => {
+  const pending = sessions.createPendingToken();
+  const baseUrl = sessions.getServerUrl(PORT);
+  const authUrl = `${baseUrl}?token=${pending.token}`;
+  const qrSvg = await QRCode.toString(authUrl, { type: 'svg', margin: 2, width: 300 });
+  res.json({ url: authUrl, qrSvg, token: pending.token, expiresAt: pending.expiresAt });
+});
+
+app.post('/api/session/verify', (req, res) => {
+  const { token } = req.body as { token?: string };
+  if (!token) {
+    res.status(400).json({ error: 'Token required' });
+    return;
+  }
+  const session = sessions.verifyPendingToken(token);
+  if (!session) {
+    res.status(403).json({ error: 'Invalid or expired token' });
+    return;
+  }
+  res.json({ sessionToken: session.token });
+});
+
+app.get('/api/summoner', authMiddleware, (_req, res) => {
   const state = bridge.currentState;
   if (!state.summoner) {
     res.status(503).json({ error: 'Not connected to League Client' });
@@ -31,11 +78,11 @@ app.get('/api/summoner', (_req, res) => {
   res.json(state.summoner);
 });
 
-app.get('/api/gameflow/phase', (_req, res) => {
+app.get('/api/gameflow/phase', authMiddleware, (_req, res) => {
   res.json({ phase: bridge.currentState.phase });
 });
 
-app.get('/api/champ-select/session', async (_req, res) => {
+app.get('/api/champ-select/session', authMiddleware, async (_req, res) => {
   if (!bridge.currentState.connected) {
     res.status(503).json({ error: 'Not connected to League Client' });
     return;
@@ -46,6 +93,209 @@ app.get('/api/champ-select/session', async (_req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch champ select session', details: (err as Error).message });
   }
+});
+
+app.post('/api/matchmaking/accept', authMiddleware, async (_req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    await bridge.makeRequest('POST', '/lol-matchmaking/v1/ready-check/accept');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to accept match', details: (err as Error).message });
+  }
+});
+
+app.patch('/api/champ-select/my-selection', authMiddleware, async (req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const result = await bridge.makeRequest('PATCH', '/lol-champ-select/v1/session/my-selection', req.body);
+    res.json(result || { success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update selection', details: (err as Error).message });
+  }
+});
+
+app.post('/api/champ-select/action/:id/complete', authMiddleware, async (req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    await bridge.makeRequest('POST', `/lol-champ-select/v1/session/actions/${req.params.id}/complete`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to complete action', details: (err as Error).message });
+  }
+});
+
+let championsCache: Record<string, { id: string; name: string; image: string }> | null = null;
+
+let perksCache: Record<string, unknown> | null = null;
+
+app.get('/api/perks/data', async (_req, res) => {
+  if (perksCache) {
+    res.json(perksCache);
+    return;
+  }
+  try {
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/runesReforged.json');
+    perksCache = (await response.json()) as Record<string, unknown>;
+    res.json(perksCache);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch perk data' });
+  }
+});
+
+app.get('/api/perks/pages', authMiddleware, async (_req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const pages = await bridge.makeRequest('GET', '/lol-perks/v1/pages');
+    res.json(pages);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch perk pages', details: (err as Error).message });
+  }
+});
+
+app.post('/api/perks/pages', authMiddleware, async (req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const result = await bridge.makeRequest('POST', '/lol-perks/v1/pages', req.body);
+    res.json(result || { success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create perk page', details: (err as Error).message });
+  }
+});
+
+app.put('/api/perks/currentpage', authMiddleware, async (req, res) => {
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const { id } = req.body as { id: number };
+    const result = await bridge.makeRequest('PUT', `/lol-perks/v1/currentpage/${id}`);
+    res.json(result || { success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to set current perk page', details: (err as Error).message });
+  }
+});
+
+async function ensureChampionsCache(): Promise<void> {
+  if (championsCache) return;
+  try {
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/champion.json');
+    const data = (await response.json()) as { data: Record<string, { key: string; name: string; image: { full: string } }> };
+    championsCache = {};
+    for (const champ of Object.values(data.data)) {
+      championsCache[champ.key] = { id: champ.key, name: champ.name, image: champ.image.full };
+    }
+  } catch {
+    // cache will remain null
+  }
+}
+
+app.get('/api/champions/suggestions', authMiddleware, async (_req, res) => {
+  await ensureChampionsCache();
+  if (!championsCache) {
+    res.status(500).json({ error: 'Failed to load champion data' });
+    return;
+  }
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const suggestions = await getSuggestions(
+      (method, url, body) => bridge.makeRequest(method, url, body),
+      championsCache,
+    );
+    res.json(suggestions);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate suggestions', details: (err as Error).message });
+  }
+});
+
+app.get('/api/champions', async (_req, res) => {
+  if (championsCache) {
+    res.json(championsCache);
+    return;
+  }
+  try {
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/champion.json');
+    const data = (await response.json()) as { data: Record<string, { key: string; name: string; image: { full: string } }> };
+    championsCache = {};
+    for (const champ of Object.values(data.data)) {
+      championsCache[champ.key] = { id: champ.key, name: champ.name, image: champ.image.full };
+    }
+    res.json(championsCache);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch champion data' });
+  }
+});
+
+// Serve built frontend in production
+const possibleDists = [
+  join(__dirname, '..', 'frontend', 'dist'),                    // tsx dev
+  join(__dirname, '..', '..', 'src', 'frontend', 'dist'),       // pkg snapshot
+  join(process.cwd(), 'src', 'frontend', 'dist'),               // cwd fallback
+];
+let frontendDist = '';
+for (const p of possibleDists) {
+  if (existsSync(p)) { frontendDist = p; break; }
+}
+if (frontendDist) {
+  app.use(express.static(frontendDist));
+  console.log(`[Server] Serving static frontend from ${frontendDist}`);
+}
+
+// Profile CRUD
+app.get('/api/profiles', authMiddleware, (_req, res) => {
+  res.json(getAllProfiles());
+});
+
+app.get('/api/profiles/active', authMiddleware, (_req, res) => {
+  const id = getActiveProfileId();
+  const profile = id !== null ? getProfile(id) : null;
+  res.json(profile);
+});
+
+app.post('/api/profiles', authMiddleware, (req, res) => {
+  const { name } = req.body as { name: string };
+  if (!name) { res.status(400).json({ error: 'Name required' }); return; }
+  const profile = createProfile(name);
+  res.json(profile);
+});
+
+app.put('/api/profiles/:id', authMiddleware, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const profile = updateProfile(id, req.body as Record<string, unknown>);
+  if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
+  res.json(profile);
+});
+
+app.delete('/api/profiles/:id', authMiddleware, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const deleted = deleteProfile(id);
+  res.json({ success: deleted });
+});
+
+app.put('/api/profiles/:id/activate', authMiddleware, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!getProfile(id)) { res.status(404).json({ error: 'Profile not found' }); return; }
+  setActiveProfileId(id);
+  res.json({ success: true });
 });
 
 app.use((_req, res) => {
@@ -67,19 +317,68 @@ bridge.on('disconnected', () => {
   broadcast({ type: 'bridge:disconnected' });
 });
 
-bridge.on('phaseChanged', (phase) => {
+bridge.on('phaseChanged', async (phase) => {
   broadcast({ type: 'gameflow:phase', phase });
+
+  if (phase === 'ReadyCheck') {
+    const profileId = getActiveProfileId();
+    if (profileId !== null) {
+      const profile = getProfile(profileId);
+      if (profile?.autoMode) {
+        console.log('[Auto] Accepting match...');
+        try {
+          await bridge.makeRequest('POST', '/lol-matchmaking/v1/ready-check/accept');
+          console.log('[Auto] Match accepted');
+        } catch (err) {
+          console.error('[Auto] Accept failed:', (err as Error).message);
+        }
+      }
+    }
+  }
 });
 
-bridge.on('champSelectChanged', (data) => {
+bridge.on('champSelectChanged', async (data) => {
   broadcast({ type: 'champ-select:update', data });
+
+  const profileId = getActiveProfileId();
+  if (profileId === null) return;
+  const profile = getProfile(profileId);
+  if (!profile?.autoMode || profile.preferredChampionIds.length === 0) return;
+
+  const session = data as { actions: Array<Array<{ id: number; actorCellId: number; type: string; completed: boolean }>>; localPlayerCellId: number; myTeam: Array<{ cellId: number; championId: number }> };
+  if (!session?.actions) return;
+
+  const myActions = session.actions.flat().filter((a) => a.actorCellId === session.localPlayerCellId && !a.completed);
+  const pickAction = myActions.find((a) => a.type === 'pick');
+  if (!pickAction) return;
+
+  const alreadyPicked = session.myTeam?.find((p) => p.cellId === session.localPlayerCellId)?.championId;
+  if (alreadyPicked && alreadyPicked !== 0) return;
+
+  const preferredId = profile.preferredChampionIds[0];
+  console.log(`[Auto] Picking champion ${preferredId}...`);
+  try {
+    await bridge.makeRequest('PATCH', '/lol-champ-select/v1/session/my-selection', { championId: preferredId });
+    await bridge.makeRequest('POST', `/lol-champ-select/v1/session/actions/${pickAction.id}/complete`);
+    console.log('[Auto] Champion picked and locked');
+  } catch (err) {
+    console.error('[Auto] Pick failed:', (err as Error).message);
+  }
 });
 
 bridge.on('error', (err) => {
   console.error('[Server] Bridge error:', err.message);
 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  const url = new URL(req.url || '/', 'http://localhost');
+  const token = url.searchParams.get('session');
+
+  if (!token || !sessions.validateSession(token)) {
+    ws.close(4001, 'Unauthorized');
+    return;
+  }
+
   const state = bridge.currentState;
   ws.send(JSON.stringify({ type: 'bridge:state', state }));
 
@@ -97,7 +396,39 @@ function broadcast(data: Record<string, unknown>): void {
   });
 }
 
+// File logging
+function logToFile(msg: string): void {
+  try {
+    const logDir = __dirname.includes('snapshot') ? process.cwd() : join(__dirname, '..', '..', 'data');
+    if (!existsSync(logDir)) return;
+    appendFileSync(join(logDir, 'server.log'), `[${new Date().toISOString()}] ${msg}\n`);
+  } catch {
+    // ignore log errors
+  }
+}
+
+// Global exception handlers
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message, err.stack);
+  logToFile(`FATAL Uncaught exception: ${err.message} ${err.stack}`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  logToFile(`FATAL Unhandled rejection: ${String(reason)}`);
+});
+
 server.listen(PORT, () => {
-  console.log(`LeagueHelper server running on http://localhost:${PORT}`);
+  const url = `http://localhost:${PORT}`;
+  console.log(`LeagueHelper server running on ${url}`);
+  logToFile(`Server started on ${url}`);
+
+  // Auto-open browser (production only, skip if running via tsx)
+  if (!process.execPath.includes('tsx')) {
+    exec(`start ${url}`, (err) => {
+      if (err) console.warn('[Server] Could not open browser:', err.message);
+    });
+  }
+
   bridge.start();
 });
