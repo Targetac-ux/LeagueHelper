@@ -5,3 +5,5 @@ src/frontend/dist/
 *.log
 .DS_Store
 Thumbs.db
+
+data/leaguehelper.db*
