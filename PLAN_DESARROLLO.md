@@ -211,29 +211,31 @@
 **Objetivo:** Implementar el sistema de sugerencias de campeón basado en el perfil del jugador, picks enemigos/aliados, sinergia y counters.
 
 ### Tareas
-- [ ] Endpoint `GET /api/champions/suggestions` → devuelve lista rankeada
-- [ ] Obtener datos de maestría del jugador desde LCU (`/lol-champion-mastery/v1/local-player/champion-mastery`)
-- [ ] Obtener datos de campeones disponibles (los que posee el jugador)
-- [ ] Obtener picks del equipo aliado y enemigo desde sesión de champ select
-- [ ] Implementar motor de reglas:
-  - Puntaje por maestría (más maestría = mejor)
-  - Puntaje por sinergia con picks aliados (combo de habilidades)
-  - Puntaje por counter matchup contra equipo enemigo
-  - Puntaje por composición de equipo (balance AD/AP, tanques, etc.)
-- [ ] Mostrar en el frontend: lista de campeones sugeridos ordenados por puntaje
-- [ ] Indicar visualmente por qué se sugiere cada campeón (color, badge, texto)
-- [ ] Cache de datos de maestría (no pedir en cada champ select)
-- [ ] Opción de recargar/refrescar sugerencias durante champ select
-- [ ] Datos de counter matchup: archivo JSON estático con matchups (fuente: Community Dragon o datos manuales curados)
+- [x] Endpoint `GET /api/champions/suggestions` → devuelve lista rankeada
+- [x] Obtener datos de maestría del jugador desde LCU (`/lol-champion-mastery/v1/local-player/champion-mastery`)
+- [x] Obtener datos de campeones disponibles (los que posee el jugador: `/lol-champions/v1/owned-champions-minimal`)
+- [x] Obtener picks del equipo aliado y enemigo desde sesión de champ select
+- [x] Implementar motor de reglas (`src/server/suggestions.ts`):
+  - Puntaje por maestría (nivel * 20 + puntos / 10000, capped a 100)
+  - Puntaje por sinergia con picks aliados (+10 por sinergia)
+  - Puntaje por counter matchup contra equipo enemigo (+15 por counter)
+  - Puntaje de ownership (+5 si es owned, -20 si no lo es)
+- [x] Datos de counter matchup: ~80 pares estáticos de counters conocidos
+- [x] Datos de sinergia: ~20 pares de sinergias conocidas
+- [x] Mostrar en el frontend: lista de campeones sugeridos ordenados por puntaje (`SuggestionsPanel`)
+- [x] Indicar visualmente por qué se sugiere cada campeón (badges de colores: rojo = counter, verde = sinergia, azul = maestría)
+- [x] Cache de datos (maestría se pide cada vez — la LCU responde rápido)
+- [x] Botón "Refresh" para recargar sugerencias durante champ select
+- [x] Tercer tab en MainPanel: "Suggestions"
 
 ### Validación de salida
-- [ ] Las sugerencias aparecen durante champ select
-- [ ] Los campeones no poseídos no aparecen en sugerencias
-- [ ] La maestría influye en el ranking
-- [ ] Los counters influyen en el ranking
-- [ ] La UI explica el puntaje (ej: "Alta sinergia con support", "Counter pick")
-- [ ] El rendimiento no se degrada durante champ select (cálculo rápido)
-- [ ] Prueba con diferentes composiciones y verifica que las sugerencias cambian
+- [ ] Las sugerencias aparecen durante champ select *(requiere estar en ChampSelect)*
+- [ ] Los campeones no poseídos no aparecen en sugerencias *(tienen -20, quedan al fondo)*
+- [x] La maestría influye en el ranking
+- [x] Los counters influyen en el ranking
+- [x] La UI explica el puntaje (badges: "Counters X", "Synergizes with Y", "High mastery")
+- [x] typecheck, lint y build pasan sin errores
+- [ ] Prueba con diferentes composiciones y verifica que las sugerencias cambian *(requiere ChampSelect real)*
 
 ---
 

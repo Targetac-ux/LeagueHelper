@@ -6,6 +6,7 @@ import { GameflowDisplay } from './GameflowDisplay';
 import { AcceptButton } from './AcceptButton';
 import { ChampSelectPanel } from './ChampSelectPanel';
 import { RunePanel } from './RunePanel';
+import { SuggestionsPanel } from './SuggestionsPanel';
 
 interface Props {
   sessionToken: string;
@@ -13,7 +14,7 @@ interface Props {
 
 export function MainPanel({ sessionToken }: Props) {
   const { connectionState, summoner, phase, champSelectData } = useGameflow(sessionToken);
-  const [showRunes, setShowRunes] = useState(false);
+  const [champSelectTab, setChampSelectTab] = useState<'pick' | 'runes' | 'suggestions'>('pick');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -68,44 +69,13 @@ export function MainPanel({ sessionToken }: Props) {
       {connectionState === 'connected' && phase === 'ChampSelect' && (
         <>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => setShowRunes(false)}
-              style={{
-                flex: 1,
-                padding: '8px 0',
-                borderRadius: 6,
-                border: 'none',
-                background: !showRunes ? '#3b82f6' : '#1e293b',
-                color: '#f1f5f9',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Champ Select
-            </button>
-            <button
-              onClick={() => setShowRunes(true)}
-              style={{
-                flex: 1,
-                padding: '8px 0',
-                borderRadius: 6,
-                border: 'none',
-                background: showRunes ? '#3b82f6' : '#1e293b',
-                color: '#f1f5f9',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Runes
-            </button>
+            <TabButton label="Pick" active={champSelectTab === 'pick'} onClick={() => setChampSelectTab('pick')} />
+            <TabButton label="Runes" active={champSelectTab === 'runes'} onClick={() => setChampSelectTab('runes')} />
+            <TabButton label="Suggestions" active={champSelectTab === 'suggestions'} onClick={() => setChampSelectTab('suggestions')} />
           </div>
-          {showRunes ? (
-            <RunePanel sessionToken={sessionToken} />
-          ) : (
-            <ChampSelectPanel sessionToken={sessionToken} data={champSelectData} />
-          )}
+          {champSelectTab === 'runes' && <RunePanel sessionToken={sessionToken} />}
+          {champSelectTab === 'suggestions' && <SuggestionsPanel sessionToken={sessionToken} onSelect={(id) => console.log('Suggested pick:', id)} />}
+          {champSelectTab === 'pick' && <ChampSelectPanel sessionToken={sessionToken} data={champSelectData} />}
         </>
       )}
 
@@ -124,5 +94,26 @@ export function MainPanel({ sessionToken }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1,
+        padding: '8px 0',
+        borderRadius: 6,
+        border: 'none',
+        background: active ? '#3b82f6' : '#1e293b',
+        color: '#f1f5f9',
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+    </button>
   );
 }

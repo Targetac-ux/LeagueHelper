@@ -6,6 +6,7 @@ import { WebSocketServer } from 'ws';
 import * as QRCode from 'qrcode';
 import { LcuBridge } from '../lcu-bridge/client';
 import { SessionManager } from './session';
+import { getSuggestions } from './suggestions';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -176,6 +177,41 @@ app.put('/api/perks/currentpage', authMiddleware, async (req, res) => {
     res.json(result || { success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to set current perk page', details: (err as Error).message });
+  }
+});
+
+async function ensureChampionsCache(): Promise<void> {
+  if (championsCache) return;
+  try {
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/champion.json');
+    const data = (await response.json()) as { data: Record<string, { key: string; name: string; image: { full: string } }> };
+    championsCache = {};
+    for (const champ of Object.values(data.data)) {
+      championsCache[champ.key] = { id: champ.key, name: champ.name, image: champ.image.full };
+    }
+  } catch {
+    // cache will remain null
+  }
+}
+
+app.get('/api/champions/suggestions', authMiddleware, async (_req, res) => {
+  await ensureChampionsCache();
+  if (!championsCache) {
+    res.status(500).json({ error: 'Failed to load champion data' });
+    return;
+  }
+  if (!bridge.currentState.connected) {
+    res.status(503).json({ error: 'Not connected to League Client' });
+    return;
+  }
+  try {
+    const suggestions = await getSuggestions(
+      (method, url, body) => bridge.makeRequest(method, url, body),
+      championsCache,
+    );
+    res.json(suggestions);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate suggestions', details: (err as Error).message });
   }
 });
 
