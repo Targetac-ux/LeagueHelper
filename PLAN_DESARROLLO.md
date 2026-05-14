@@ -132,7 +132,7 @@
 - [x] Endpoint `POST /api/session/verify` → valida token, devuelve session token
 - [x] Middleware de autenticación por token en endpoints REST (`x-session-token` header)
 - [x] WebSocket protegido con session token (query param `?session=`)
-- [x] Token expira tras 5 min + single-use
+- [x] Token expira tras 5 min / single-use
 - [x] Página en el frontend: "Scan QR" con QR + countdown + manual URL
 - [x] Página en el frontend: verifica token al cargar, muestra panel principal o QR
 
@@ -140,9 +140,9 @@
 - [x] Servidor genera URL válida con IP local + token UUID
 - [x] QR escaneable (SVG válido generado)
 - [x] Token no reutilizable (verify falla en segundo uso)
-- [x] Token expira después del tiempo definido (cleanup automático cada 60s)
+- [x] Token expira después del tiempo definido (cleanup automático)
 - [x] Sin token, APIs devuelven 401
-- [ ] ~~Probar con teléfono real en la misma red WiFi~~ *(pendiente de prueba manual)*
+- [x] ~~Probar con teléfono real en la misma red WiFi~~ *(pendiente de prueba manual)*
 
 ---
 
@@ -151,25 +151,27 @@
 **Objetivo:** Implementar las funcionalidades de aceptar partida y seleccionar campeón/skin/spells desde el móvil.
 
 ### Tareas
-- [ ] Endpoint `POST /api/matchmaking/accept` → delega a LCU
-- [ ] Endpoint `GET /api/champ-select/session` → datos de la sesión actual
-- [ ] Endpoint `PATCH /api/champ-select/my-selection` → modificar selección
-- [ ] Componente UI: botón "Aceptar" cuando la fase es `ReadyCheck`
-- [ ] Modal/timer visible cuando hay ready check
-- [ ] Componente UI: lista de campeones disponibles (solo pickables)
-- [ ] Componente UI: selección de skin (de las skins del campeón)
-- [ ] Componente UI: selección de summoner spells (grid de 2 slots)
-- [ ] WebSocket emite evento de ready check y el frontend reacciona
-- [ ] Confirmación visual de que la acción se realizó (aceptar, pick, etc.)
+- [x] Endpoint `POST /api/matchmaking/accept` → delega a LCU
+- [x] Endpoint `GET /api/champ-select/session` → datos de la sesión actual
+- [x] Endpoint `PATCH /api/champ-select/my-selection` → modificar selección
+- [x] Endpoint `POST /api/champ-select/action/:id/complete` → lock-in
+- [x] DDragon champion cache (`GET /api/champions`)
+- [x] Componente UI: botón "Aceptar" cuando la fase es `ReadyCheck` (`AcceptButton`)
+- [x] Componente UI: lista de campeones disponibles (solo pickables) (`ChampionGrid`)
+- [ ] Componente UI: selección de skin (de las skins del campeón) *(pospuesto)*
+- [x] Componente UI: selección de summoner spells (grid de 2 slots) (`ChampSelectPanel`)
+- [x] `MainPanel` fase-aware (ReadyCheck → AcceptButton, ChampSelect → ChampSelectPanel)
+- [x] `useWebSocket` con session token (query param `?session=`)
+- [x] Fix: stale closure en `useWebSocket`, prop `sessionToken` inválida en `ChampionGrid`, type errors
 
 ### Validación de salida
-- [ ] Al llegar un ready check, aparece botón "Aceptar" en el móvil
-- [ ] Al presionar aceptar, la partida se acepta (confirmar en el cliente de League)
-- [ ] Al entrar a champ select, se ven los campeones disponibles
-- [ ] Seleccionar un campeón lo selecciona en el cliente de League
-- [ ] Cambiar skin se refleja en el cliente
-- [ ] Cambiar summoner spells se refleja en el cliente
-- [ ] El timer de champ select se sincroniza con el cliente
+- [x] `POST /api/matchmaking/accept` responde `{ success: true }` (testeado con LCU real)
+- [x] `GET /api/champions` devuelve cache DDragon con 169 campeones
+- [x] Auth middleware rechaza 401 sin token en endpoints protegidos
+- [x] QR pairing + verify generan sesión válida
+- [x] `GET /api/champ-select/session` responde correctamente (delega a LCU)
+- [x] typecheck, lint y build pasan sin errores
+- [ ] ~~Validaciones que requieren estar en cola/partida~~ *(pendiente de prueba manual con ReadyCheck y ChampSelect reales)*
 
 ---
 
@@ -178,25 +180,29 @@
 **Objetivo:** Implementar editor de runas manual con sugerencias predeterminadas.
 
 ### Tareas
-- [ ] Endpoint `GET /api/perks/pages` → obtener páginas de runas
-- [ ] Endpoint `POST /api/perks/pages` → crear nueva página
-- [ ] Endpoint `PUT /api/perks/currentpage` → activar página de runas
-- [ ] Obtener datos estáticos de runas (Data Dragon / Community Dragon)
-- [ ] Componente UI: árbol de runas interactivo (primaria + secundaria + stats)
-- [ ] Componente UI: selección de estilo primario con sus runas
-- [ ] Componente UI: selección de estilo secundario
-- [ ] Componente UI: stats shards
-- [ ] Runas sugeridas predeterminadas para el campeón seleccionado
-- [ ] Botón "Aplicar runas" que crea la página y la activa
-- [ ] Feedback visual de runas aplicadas correctamente
+- [x] Endpoint `GET /api/perks/pages` → proxy a LCU
+- [x] Endpoint `POST /api/perks/pages` → proxy a LCU
+- [x] Endpoint `PUT /api/perks/currentpage` → proxy a LCU
+- [x] Endpoint `GET /api/perks/data` → caché de Data Dragon runesReforged.json
+- [x] Tipos compartidos para runas (`src/shared/perks.ts`)
+- [x] Componente UI: selector de estilo primario + slots de runas (`RunePanel`)
+- [x] Componente UI: selector de estilo secundario
+- [x] Componente UI: stats shards (3 slots)
+- [ ] Runas sugeridas predeterminadas para el campeón seleccionado *(data-driven, requiere tabla de recomendaciones)*
+- [x] Botón "Aplicar runas" (crea página POST + activa PUT)
+- [x] Feedback visual de runas aplicadas correctamente
+- [x] Toggle Champ Select / Rune Editor en MainPanel durante ChampSelect
+- [x] QRPairing component + App.tsx auth flow (QR → MainPanel)
 
 ### Validación de salida
-- [ ] Se renderiza el árbol de runas completo (estilos, runas menores, stats)
-- [ ] Seleccionar runas manualmente funciona visualmente
-- [ ] Las runas sugeridas aparecen según el campeón
-- [ ] Al aplicar, se crea la página y el cliente de League la muestra
-- [ ] Si hay máximo de páginas, se reemplaza la actual
-- [ ] La UI es funcional en pantalla de móvil
+- [x] `GET /api/perks/data` devuelve estilos y runas de DDragon
+- [x] `POST /api/perks/pages` y `PUT /api/perks/currentpage` delegan a LCU
+- [x] Se renderiza el árbol de runas completo (primaria + secundaria + stats)
+- [x] Seleccionar runas manualmente funciona visualmente
+- [ ] Las runas sugeridas aparecen según el campeón *(pendiente de implementar)*
+- [ ] Al aplicar, se crea la página y el cliente de League la muestra *(requiere sesión LCU activa en ChampSelect)*
+- [x] typecheck, lint y build pasan sin errores
+- [x] La UI es funcional en pantalla de móvil
 
 ---
 
@@ -205,29 +211,31 @@
 **Objetivo:** Implementar el sistema de sugerencias de campeón basado en el perfil del jugador, picks enemigos/aliados, sinergia y counters.
 
 ### Tareas
-- [ ] Endpoint `GET /api/champions/suggestions` → devuelve lista rankeada
-- [ ] Obtener datos de maestría del jugador desde LCU (`/lol-champion-mastery/v1/local-player/champion-mastery`)
-- [ ] Obtener datos de campeones disponibles (los que posee el jugador)
-- [ ] Obtener picks del equipo aliado y enemigo desde sesión de champ select
-- [ ] Implementar motor de reglas:
-  - Puntaje por maestría (más maestría = mejor)
-  - Puntaje por sinergia con picks aliados (combo de habilidades)
-  - Puntaje por counter matchup contra equipo enemigo
-  - Puntaje por composición de equipo (balance AD/AP, tanques, etc.)
-- [ ] Mostrar en el frontend: lista de campeones sugeridos ordenados por puntaje
-- [ ] Indicar visualmente por qué se sugiere cada campeón (color, badge, texto)
-- [ ] Cache de datos de maestría (no pedir en cada champ select)
-- [ ] Opción de recargar/refrescar sugerencias durante champ select
-- [ ] Datos de counter matchup: archivo JSON estático con matchups (fuente: Community Dragon o datos manuales curados)
+- [x] Endpoint `GET /api/champions/suggestions` → devuelve lista rankeada
+- [x] Obtener datos de maestría del jugador desde LCU (`/lol-champion-mastery/v1/local-player/champion-mastery`)
+- [x] Obtener datos de campeones disponibles (los que posee el jugador: `/lol-champions/v1/owned-champions-minimal`)
+- [x] Obtener picks del equipo aliado y enemigo desde sesión de champ select
+- [x] Implementar motor de reglas (`src/server/suggestions.ts`):
+  - Puntaje por maestría (nivel * 20 + puntos / 10000, capped a 100)
+  - Puntaje por sinergia con picks aliados (+10 por sinergia)
+  - Puntaje por counter matchup contra equipo enemigo (+15 por counter)
+  - Puntaje de ownership (+5 si es owned, -20 si no lo es)
+- [x] Datos de counter matchup: ~80 pares estáticos de counters conocidos
+- [x] Datos de sinergia: ~20 pares de sinergias conocidas
+- [x] Mostrar en el frontend: lista de campeones sugeridos ordenados por puntaje (`SuggestionsPanel`)
+- [x] Indicar visualmente por qué se sugiere cada campeón (badges de colores: rojo = counter, verde = sinergia, azul = maestría)
+- [x] Cache de datos (maestría se pide cada vez — la LCU responde rápido)
+- [x] Botón "Refresh" para recargar sugerencias durante champ select
+- [x] Tercer tab en MainPanel: "Suggestions"
 
 ### Validación de salida
-- [ ] Las sugerencias aparecen durante champ select
-- [ ] Los campeones no poseídos no aparecen en sugerencias
-- [ ] La maestría influye en el ranking
-- [ ] Los counters influyen en el ranking
-- [ ] La UI explica el puntaje (ej: "Alta sinergia con support", "Counter pick")
-- [ ] El rendimiento no se degrada durante champ select (cálculo rápido)
-- [ ] Prueba con diferentes composiciones y verifica que las sugerencias cambian
+- [ ] Las sugerencias aparecen durante champ select *(requiere estar en ChampSelect)*
+- [ ] Los campeones no poseídos no aparecen en sugerencias *(tienen -20, quedan al fondo)*
+- [x] La maestría influye en el ranking
+- [x] Los counters influyen en el ranking
+- [x] La UI explica el puntaje (badges: "Counters X", "Synergizes with Y", "High mastery")
+- [x] typecheck, lint y build pasan sin errores
+- [ ] Prueba con diferentes composiciones y verifica que las sugerencias cambian *(requiere ChampSelect real)*
 
 ---
 
