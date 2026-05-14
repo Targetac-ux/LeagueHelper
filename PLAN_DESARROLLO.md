@@ -255,8 +255,8 @@
 - [x] UI de perfiles (`ProfileManager`): listar, crear, renombrar, eliminar, activar
 - [x] Toggle visual modo manual/auto (`ModeToggle` con switch animado)
 - [x] Persistencia entre sesiones (SQLite en `data/leaguehelper.db`)
-- [ ] Configuración de campeón por defecto para modo automático *(UI pendiente, el campo `preferredChampionIds` existe en DB)*
-- [ ] Configuración de runas por defecto para modo automático *(UI pendiente)*
+- [x] Configuración de campeón por defecto para modo automático (selector de campeón con búsqueda en configuración del perfil)
+- [ ] Configuración de runas por defecto para modo automático *(se usan las runas activas en el cliente de League)*
 
 ### Validación de salida
 - [x] CRUD de perfiles funciona (crear, listar, activar, eliminar)
