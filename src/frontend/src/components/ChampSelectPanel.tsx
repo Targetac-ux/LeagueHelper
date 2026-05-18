@@ -1,14 +1,18 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { ChampionGrid } from './ChampionGrid';
+
+interface BanObject {
+  championId: number;
+  pickTurn: number;
+}
 
 interface ChampSelectSession {
   actions?: Array<Array<{ id: number; actorCellId: number; championId: number; type: string; completed: boolean }>>;
-  myTeam?: Array<{ cellId: number; championId: number; selectedSkinId: number; spell1Id: number; spell2Id: number }>;
+  myTeam?: Array<{ cellId: number; championId: number; spell1Id: number; spell2Id: number }>;
   theirTeam?: Array<{ cellId: number; championId: number }>;
-  bans?: { myTeamBans: number[]; theirTeamBans: number[]; numBans: number };
+  bans?: { myTeamBans: BanObject[]; theirTeamBans: BanObject[]; numBans: number };
   localPlayerCellId?: number;
   pickableChampionIds?: number[];
-  pickableSkinIds?: number[];
   timer?: { timeLeftInPhase: number; phase: string };
 }
 
@@ -23,12 +27,27 @@ const SPELL_IDS: Record<number, string> = {
   14: 'Ignite', 21: 'Barrier', 30: 'Mark',
 };
 
-export function ChampSelectPanel({ sessionToken }: Props) {
+export function ChampSelectPanel({ sessionToken, data }: Props) {
   const [session, setSession] = useState<ChampSelectSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedChampion, setSelectedChampion] = useState<number | null>(null);
   const [banPick, setBanPick] = useState<'ban' | 'pick' | null>(null);
   const [spells, setSpells] = useState<{ s1: number; s2: number }>({ s1: 0, s2: 0 });
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const lastDataRef = useRef<unknown>(null);
+
+  const updateFromSession = useCallback((s: ChampSelectSession) => {
+    setSession(s);
+    const myAction = s.actions?.flat().find((a) => a.actorCellId === s.localPlayerCellId && !a.completed);
+    if (myAction?.type === 'ban') setBanPick('ban');
+    else if (myAction?.type === 'pick') setBanPick('pick');
+    else setBanPick(null);
+    const me = s.myTeam?.find((p) => p.cellId === s.localPlayerCellId);
+    if (me) {
+      setSelectedChampion(me.championId !== 0 ? me.championId : null);
+      setSpells({ s1: me.spell1Id, s2: me.spell2Id });
+    }
+  }, []);
 
   const fetchSession = useCallback(async () => {
     setError(null);
@@ -37,74 +56,90 @@ export function ChampSelectPanel({ sessionToken }: Props) {
         headers: { 'x-session-token': sessionToken },
       });
       if (res.ok) {
-        const data = (await res.json()) as ChampSelectSession;
-        setSession(data);
-
-        const myAction = data.actions?.flat().find((a) => a.actorCellId === data.localPlayerCellId && !a.completed);
-        if (myAction?.type === 'ban') setBanPick('ban');
-        else if (myAction?.type === 'pick') setBanPick('pick');
-        else setBanPick(null);
-
-        const me = data.myTeam?.find((p) => p.cellId === data.localPlayerCellId);
-        if (me) {
-          setSelectedChampion(me.championId !== 0 ? me.championId : null);
-          setSpells({ s1: me.spell1Id, s2: me.spell2Id });
-        }
+        const s = (await res.json()) as ChampSelectSession;
+        updateFromSession(s);
       } else {
         setError('Could not load session');
       }
     } catch {
       setError('Failed to connect to server');
     }
-  }, [sessionToken]);
+  }, [sessionToken, updateFromSession]);
+
+  useEffect(() => { fetchSession(); }, [fetchSession]);
 
   useEffect(() => {
-    fetchSession();
-  }, [fetchSession]);
+    if (!data || data === lastDataRef.current) return;
+    lastDataRef.current = data;
+    const s = data as ChampSelectSession;
+    if (s.actions || s.myTeam) {
+      updateFromSession(s);
+    }
+  }, [data, updateFromSession]);
 
-  useEffect(() => {
-    fetchSession();
-  }, [sessionToken, fetchSession]);
-
-  const handleBanSelect = async (championId: number) => {
+  const doAction = async (championId: number) => {
     setSelectedChampion(championId);
-    await fetch('/api/champ-select/my-selection', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-session-token': sessionToken },
-      body: JSON.stringify({ championId }),
-    });
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/champ-select/my-selection', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-session-token': sessionToken },
+        body: JSON.stringify({ championId }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string; details?: string };
+        setFeedback(err.details || err.error || 'Selection failed');
+      }
+    } catch {
+      setFeedback('Network error');
+    }
   };
 
-  const handleChampionSelect = async (championId: number) => {
-    setSelectedChampion(championId);
-    await fetch('/api/champ-select/my-selection', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-session-token': sessionToken },
-      body: JSON.stringify({ championId }),
-    });
-  };
+  const handleBanSelect = (championId: number) => doAction(championId);
+  const handleChampionSelect = (championId: number) => doAction(championId);
 
   const handleSpellSelect = async (slot: 1 | 2, spellId: number) => {
     const updated = slot === 1 ? { s1: spellId, s2: spells.s2 } : { s1: spells.s1, s2: spellId };
     setSpells(updated);
-    await fetch('/api/champ-select/my-selection', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-session-token': sessionToken },
-      body: JSON.stringify({ spell1Id: updated.s1, spell2Id: updated.s2 }),
-    });
+    try {
+      const res = await fetch('/api/champ-select/my-selection', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-session-token': sessionToken },
+        body: JSON.stringify({ spell1Id: updated.s1, spell2Id: updated.s2 }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        setFeedback(err.error || 'Spell update failed');
+      }
+    } catch {
+      setFeedback('Network error');
+    }
   };
 
   const handleLockIn = async () => {
     if (!session || !session.actions || session.localPlayerCellId === undefined) return;
+    setFeedback(null);
     const myAction = session.actions
       .flat()
       .find((a) => a.actorCellId === session.localPlayerCellId && !a.completed);
-    if (!myAction) return;
-    await fetch(`/api/champ-select/action/${myAction.id}/complete`, {
-      method: 'POST',
-      headers: { 'x-session-token': sessionToken },
-    });
-    setTimeout(fetchSession, 1000);
+    if (!myAction) {
+      setFeedback('No pending action found');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/champ-select/action/${myAction.id}/complete`, {
+        method: 'POST',
+        headers: { 'x-session-token': sessionToken },
+      });
+      if (res.ok) {
+        setTimeout(fetchSession, 500);
+      } else {
+        const err = (await res.json()) as { error?: string; details?: string };
+        setFeedback(err.details || err.error || 'Action failed');
+      }
+    } catch {
+      setFeedback('Network error');
+    }
   };
 
   if (error) {
@@ -124,16 +159,16 @@ export function ChampSelectPanel({ sessionToken }: Props) {
 
   const timeLeft = Math.max(0, session.timer?.timeLeftInPhase ?? 0);
   const pickableIds = session.pickableChampionIds ?? [];
-  const myBan = session.bans?.myTeamBans ?? [];
-  const theirBan = session.bans?.theirTeamBans ?? [];
+  const myBanIds = (session.bans?.myTeamBans ?? []).map((b) => b.championId);
+  const theirBanIds = (session.bans?.theirTeamBans ?? []).map((b) => b.championId);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <ChampSelectTimeline
         myTeam={session.myTeam ?? []}
         theirTeam={session.theirTeam ?? []}
-        myTeamBans={myBan}
-        theirTeamBans={theirBan}
+        myTeamBanIds={myBanIds}
+        theirTeamBanIds={theirBanIds}
         localPlayerCellId={session.localPlayerCellId}
       />
 
@@ -203,62 +238,97 @@ export function ChampSelectPanel({ sessionToken }: Props) {
           onSelect={handleChampionSelect}
         />
       )}
-    </div>
-  );
-}
 
-function ChampSelectTimeline({ myTeam, theirTeam, myTeamBans, theirTeamBans, localPlayerCellId }: {
-  myTeam: Array<{ cellId: number; championId: number }>;
-  theirTeam: Array<{ cellId: number; championId: number }> | undefined;
-  myTeamBans: number[];
-  theirTeamBans: number[];
-  localPlayerCellId: number | undefined;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8, borderRadius: 8, background: '#1e293b' }}>
-      <TeamRow label="My Team" championIds={myTeam.map((p) => p.championId).filter((id) => id !== 0)} highlight={localPlayerCellId !== undefined ? myTeam.find((p) => p.cellId === localPlayerCellId)?.championId : undefined} />
-      <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
-        <span style={{ color: '#ef4444' }}>
-          Bans: {myTeamBans.length > 0 ? myTeamBans.join(', ') : 'none'}
-        </span>
-      </div>
-      {theirTeam && (
-        <>
-          <TeamRow label="Enemy Team" championIds={theirTeam.map((p) => p.championId).filter((id) => id !== 0)} highlight={undefined} />
-          <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
-            <span style={{ color: '#ef4444' }}>
-              Bans: {theirTeamBans.length > 0 ? theirTeamBans.join(', ') : 'none'}
-            </span>
-          </div>
-        </>
+      {feedback && (
+        <p style={{
+          margin: 0, padding: 8, borderRadius: 6, textAlign: 'center', fontSize: 13,
+          background: feedback.includes('success') || feedback.includes('ok') ? '#22c55e20' : '#ef444410',
+          color: feedback.includes('success') || feedback.includes('ok') ? '#22c55e' : '#ef4444',
+        }}>
+          {feedback}
+        </p>
       )}
     </div>
   );
 }
 
-function TeamRow({ label, championIds, highlight }: { label: string; championIds: number[]; highlight: number | undefined }) {
+function ChampionName({ championId }: { championId: number }) {
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => {
+    fetch('/api/champions')
+      .then((r) => r.json())
+      .then((data) => {
+        const c = (data as Record<string, { name: string }>)[String(championId)];
+        if (c) setName(c.name);
+      })
+      .catch(() => {});
+  }, [championId]);
+  return <>{name ?? `#${championId}`}</>;
+}
+
+function ChampSelectTimeline({ myTeam, theirTeam, myTeamBanIds, theirTeamBanIds, localPlayerCellId }: {
+  myTeam: Array<{ cellId: number; championId: number }>;
+  theirTeam: Array<{ cellId: number; championId: number }> | undefined;
+  myTeamBanIds: number[];
+  theirTeamBanIds: number[];
+  localPlayerCellId: number | undefined;
+}) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ color: '#94a3b8', fontSize: 11, minWidth: 80 }}>{label}</span>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {championIds.map((id) => (
-          <span
-            key={id}
-            style={{
-              display: 'inline-block',
-              padding: '2px 8px',
-              borderRadius: 4,
-              fontSize: 11,
-              background: id === highlight ? '#3b82f650' : '#334155',
-              color: id === highlight ? '#3b82f6' : '#f1f5f9',
-              fontWeight: id === highlight ? 600 : 400,
-            }}
-          >
-            {id}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8, borderRadius: 8, background: '#1e293b' }}>
+      <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 2 }}>My Team</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {myTeam.map((p) => {
+          const isMe = p.cellId === localPlayerCellId;
+          return (
+            <span
+              key={p.cellId}
+              style={{
+                padding: '2px 8px', borderRadius: 4, fontSize: 11,
+                background: isMe ? '#3b82f650' : '#334155',
+                color: '#f1f5f9', fontWeight: isMe ? 600 : 400,
+              }}
+            >
+              <ChampionName championId={p.championId} />
+              {isMe ? ' (you)' : ''}
+            </span>
+          );
+        })}
+        {myTeam.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>pending...</span>}
+      </div>
+
+      <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginTop: 2 }}>My Bans</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {myTeamBanIds.map((id) => (
+          <span key={id} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: '#ef444420', color: '#ef4444' }}>
+            <ChampionName championId={id} />
           </span>
         ))}
-        {championIds.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>pending...</span>}
+        {myTeamBanIds.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>none yet</span>}
       </div>
+
+      {theirTeam && (
+        <>
+          <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginTop: 4 }}>Enemy Team</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {theirTeam.map((p) => (
+              <span key={p.cellId} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: '#334155', color: '#f1f5f9' }}>
+                <ChampionName championId={p.championId} />
+              </span>
+            ))}
+            {theirTeam.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>pending...</span>}
+          </div>
+
+          <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginTop: 2 }}>Enemy Bans</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {theirTeamBanIds.map((id) => (
+              <span key={id} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: '#f59e0b20', color: '#f59e0b' }}>
+                <ChampionName championId={id} />
+              </span>
+            ))}
+            {theirTeamBanIds.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>none yet</span>}
+          </div>
+        </>
+      )}
     </div>
   );
 }

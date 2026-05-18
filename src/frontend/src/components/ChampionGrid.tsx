@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface Champion {
   id: string;
@@ -12,19 +12,38 @@ interface Props {
   onSelect: (championId: number) => void;
 }
 
+const DD_BASE = 'https://ddragon.leagueoflegends.com/cdn';
+
 export function ChampionGrid({ pickableIds, selectedId, onSelect }: Props) {
   const [champions, setChampions] = useState<Record<string, Champion>>({});
   const [loading, setLoading] = useState(true);
+  const ddVersionRef = useRef('15.5.1');
 
   useEffect(() => {
-    fetch('/api/champions')
-      .then((r) => r.json())
-      .then((data) => {
-        setChampions(data as Record<string, Champion>);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        const [verRes, champRes] = await Promise.all([
+          fetch('/api/ddragon-version'),
+          fetch('/api/champions'),
+        ]);
+        if (cancelled) return;
+        if (verRes.ok) {
+          const v = (await verRes.json()) as { version: string };
+          ddVersionRef.current = v.version;
+        }
+        if (champRes.ok) {
+          setChampions((await champRes.json()) as Record<string, Champion>);
+        }
+      } catch {
+        // use defaults
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  const ddVersion = ddVersionRef.current;
 
   const pickableChampions = pickableIds
     .map((id) => champions[String(id)])
@@ -76,7 +95,7 @@ export function ChampionGrid({ pickableIds, selectedId, onSelect }: Props) {
                 }}
               >
                 <img
-                  src={`https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/${champ.image}`}
+                  src={`${DD_BASE}/${ddVersion}/img/champion/${champ.image}`}
                   alt={champ.name}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   onError={(e) => {

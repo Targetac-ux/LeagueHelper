@@ -175,6 +175,10 @@ export class LcuBridge extends EventEmitter {
       this.state.credentials,
     );
     const text = res.text();
+    if (res.status >= 400) {
+      const detail = text ? `: ${text}` : '';
+      throw new Error(`LCU request failed ${method} ${url} (${res.status})${detail}`);
+    }
     return text ? (JSON.parse(text) as T) : (undefined as unknown as T);
   }
 

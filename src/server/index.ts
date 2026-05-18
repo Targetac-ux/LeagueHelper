@@ -134,6 +134,7 @@ app.post('/api/champ-select/action/:id/complete', authMiddleware, async (req, re
   }
 });
 
+let ddragonVersion = '15.5.1';
 let championsCache: Record<string, { id: string; name: string; image: string }> | null = null;
 
 let perksCache: Record<string, unknown> | null = null;
@@ -144,7 +145,7 @@ app.get('/api/perks/data', async (_req, res) => {
     return;
   }
   try {
-    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/runesReforged.json');
+    const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/runesReforged.json`);
     perksCache = (await response.json()) as Record<string, unknown>;
     res.json(perksCache);
   } catch {
@@ -195,7 +196,7 @@ app.put('/api/perks/currentpage', authMiddleware, async (req, res) => {
 async function ensureChampionsCache(): Promise<void> {
   if (championsCache) return;
   try {
-    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/champion.json');
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion.json');
     const data = (await response.json()) as { data: Record<string, { key: string; name: string; image: { full: string } }> };
     championsCache = {};
     for (const champ of Object.values(data.data)) {
@@ -227,13 +228,17 @@ app.get('/api/champions/suggestions', authMiddleware, async (_req, res) => {
   }
 });
 
+app.get('/api/ddragon-version', (_req, res) => {
+  res.json({ version: ddragonVersion });
+});
+
 app.get('/api/champions', async (_req, res) => {
   if (championsCache) {
     res.json(championsCache);
     return;
   }
   try {
-    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/champion.json');
+    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion.json');
     const data = (await response.json()) as { data: Record<string, { key: string; name: string; image: { full: string } }> };
     championsCache = {};
     for (const champ of Object.values(data.data)) {
@@ -373,16 +378,36 @@ bridge.on('champSelectChanged', async (data) => {
   if (!session?.actions) return;
 
   const myActions = session.actions.flat().filter((a) => a.actorCellId === session.localPlayerCellId && !a.completed);
-  const pickAction = myActions.find((a) => a.type === 'pick');
+  const banActions = myActions.filter((a) => a.type === 'ban');
+  const pickActions = myActions.filter((a) => a.type === 'pick');
+
+  if (banActions.length > 0) {
+    // Auto-ban: skip bans in auto mode (user can ban manually from phone)
+    return;
+  }
+
+  const pickAction = pickActions[0];
   if (!pickAction) return;
 
   const alreadyPicked = session.myTeam?.find((p) => p.cellId === session.localPlayerCellId)?.championId;
   if (alreadyPicked && alreadyPicked !== 0) return;
 
-  const preferredId = profile.preferredChampionIds[0];
-  console.log(`[Auto] Picking champion ${preferredId}...`);
+  const preferredIds = profile.preferredChampionIds;
+  const pickableIds = (data as { pickableChampionIds?: number[] }).pickableChampionIds ?? [];
+  const pickedByIds = new Set((session.myTeam ?? []).map((p) => p.championId).filter((id) => id !== 0));
+  const bannedIds = new Set([
+    ...((data as { bans?: { myTeamBans: Array<{ championId: number }>; theirTeamBans: Array<{ championId: number }> } }).bans?.myTeamBans ?? []).map((b) => b.championId),
+    ...((data as { bans?: { myTeamBans: Array<{ championId: number }>; theirTeamBans: Array<{ championId: number }> } }).bans?.theirTeamBans ?? []).map((b) => b.championId),
+  ]);
+
+  const available = preferredIds.filter(
+    (id) => pickableIds.includes(id) && !pickedByIds.has(id) && !bannedIds.has(id),
+  );
+  const chosenId = available[0] ?? preferredIds[0];
+
+  console.log(`[Auto] Picking champion ${chosenId}...`);
   try {
-    await bridge.makeRequest('PATCH', '/lol-champ-select/v1/session/my-selection', { championId: preferredId });
+    await bridge.makeRequest('PATCH', '/lol-champ-select/v1/session/my-selection', { championId: chosenId });
     await bridge.makeRequest('POST', `/lol-champ-select/v1/session/actions/${pickAction.id}/complete`);
     console.log('[Auto] Champion picked and locked');
   } catch (err) {
@@ -453,6 +478,20 @@ server.listen(PORT, () => {
       if (err) console.warn('[Server] Could not open browser:', err.message);
     });
   }
+
+  // Fetch latest DDragon version at startup
+  (async () => {
+    try {
+      const res = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+      const versions = (await res.json()) as string[];
+      if (versions.length > 0) {
+        ddragonVersion = versions[0];
+        console.log(`[Server] DDragon version: ${ddragonVersion}`);
+      }
+    } catch {
+      console.warn('[Server] Could not fetch DDragon version, using default');
+    }
+  })();
 
   // Initialize database at startup
   try {
