@@ -195,15 +195,43 @@ app.put('/api/perks/currentpage', authMiddleware, async (req, res) => {
 
 async function ensureChampionsCache(): Promise<void> {
   if (championsCache) return;
+  // Try LCU first (always accurate, no version dependency)
+  const summonerId = bridge.currentState.summoner?.summonerId;
+  if (summonerId && bridge.currentState.connected) {
+    try {
+      const res = await bridge.makeRequest<Array<Record<string, unknown>>>(
+        'GET', `/lol-champions/v1/inventories/${summonerId}/champions-minimal`,
+      );
+      if (Array.isArray(res) && res.length > 0) {
+        championsCache = {};
+        for (const entry of res) {
+          const champId = String((entry as { championId?: number; id?: number }).championId ?? (entry as { id?: number }).id ?? '');
+          const champName = String((entry as { championName?: string; name?: string }).championName ?? (entry as { name?: string }).name ?? '');
+          if (champId && champName) {
+            championsCache[champId] = { id: champId, name: champName, image: `${champId}.png` };
+          }
+        }
+        if (Object.keys(championsCache).length > 0) {
+          console.log(`[Server] Champions cache loaded from LCU (${Object.keys(championsCache).length} champions)`);
+          return;
+        }
+        championsCache = null;
+      }
+    } catch {
+      // LCU not available, fall back to DDragon
+    }
+  }
+  // Fallback: DDragon
   try {
-    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion.json');
+    const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion.json`);
     const data = (await response.json()) as { data: Record<string, { key: string; name: string; image: { full: string } }> };
     championsCache = {};
     for (const champ of Object.values(data.data)) {
       championsCache[champ.key] = { id: champ.key, name: champ.name, image: champ.image.full };
     }
-  } catch {
-    // cache will remain null
+    console.log(`[Server] Champions cache loaded from DDragon (${Object.keys(championsCache).length} champions)`);
+  } catch (err) {
+    console.error('[Server] Failed to load champion data from DDragon:', (err as Error).message);
   }
 }
 
@@ -233,21 +261,12 @@ app.get('/api/ddragon-version', (_req, res) => {
 });
 
 app.get('/api/champions', async (_req, res) => {
-  if (championsCache) {
-    res.json(championsCache);
+  await ensureChampionsCache();
+  if (!championsCache) {
+    res.status(500).json({ error: 'Failed to load champion data' });
     return;
   }
-  try {
-    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion.json');
-    const data = (await response.json()) as { data: Record<string, { key: string; name: string; image: { full: string } }> };
-    championsCache = {};
-    for (const champ of Object.values(data.data)) {
-      championsCache[champ.key] = { id: champ.key, name: champ.name, image: champ.image.full };
-    }
-    res.json(championsCache);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch champion data' });
-  }
+  res.json(championsCache);
 });
 
 // Serve built frontend in production

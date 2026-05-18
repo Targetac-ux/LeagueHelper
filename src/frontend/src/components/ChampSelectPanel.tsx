@@ -30,11 +30,25 @@ const SPELL_IDS: Record<number, string> = {
 export function ChampSelectPanel({ sessionToken, data }: Props) {
   const [session, setSession] = useState<ChampSelectSession | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [championNames, setChampionNames] = useState<Record<string, string>>({});
   const [selectedChampion, setSelectedChampion] = useState<number | null>(null);
   const [banPick, setBanPick] = useState<'ban' | 'pick' | null>(null);
   const [spells, setSpells] = useState<{ s1: number; s2: number }>({ s1: 0, s2: 0 });
   const [feedback, setFeedback] = useState<string | null>(null);
   const lastDataRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    fetch('/api/champions')
+      .then((r) => r.json())
+      .then((data) => {
+        const map: Record<string, string> = {};
+        for (const [id, c] of Object.entries(data as Record<string, { name: string }>)) {
+          map[id] = c.name;
+        }
+        setChampionNames(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const updateFromSession = useCallback((s: ChampSelectSession) => {
     setSession(s);
@@ -170,6 +184,7 @@ export function ChampSelectPanel({ sessionToken, data }: Props) {
         myTeamBanIds={myBanIds}
         theirTeamBanIds={theirBanIds}
         localPlayerCellId={session.localPlayerCellId}
+        championNames={championNames}
       />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -252,27 +267,15 @@ export function ChampSelectPanel({ sessionToken, data }: Props) {
   );
 }
 
-function ChampionName({ championId }: { championId: number }) {
-  const [name, setName] = useState<string | null>(null);
-  useEffect(() => {
-    fetch('/api/champions')
-      .then((r) => r.json())
-      .then((data) => {
-        const c = (data as Record<string, { name: string }>)[String(championId)];
-        if (c) setName(c.name);
-      })
-      .catch(() => {});
-  }, [championId]);
-  return <>{name ?? `#${championId}`}</>;
-}
-
-function ChampSelectTimeline({ myTeam, theirTeam, myTeamBanIds, theirTeamBanIds, localPlayerCellId }: {
+function ChampSelectTimeline({ myTeam, theirTeam, myTeamBanIds, theirTeamBanIds, localPlayerCellId, championNames }: {
   myTeam: Array<{ cellId: number; championId: number }>;
   theirTeam: Array<{ cellId: number; championId: number }> | undefined;
   myTeamBanIds: number[];
   theirTeamBanIds: number[];
   localPlayerCellId: number | undefined;
+  championNames: Record<string, string>;
 }) {
+  const getName = (id: number) => championNames[String(id)] ?? `#${id}`;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8, borderRadius: 8, background: '#1e293b' }}>
       <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 2 }}>My Team</div>
@@ -288,7 +291,7 @@ function ChampSelectTimeline({ myTeam, theirTeam, myTeamBanIds, theirTeamBanIds,
                 color: '#f1f5f9', fontWeight: isMe ? 600 : 400,
               }}
             >
-              <ChampionName championId={p.championId} />
+              {getName(p.championId)}
               {isMe ? ' (you)' : ''}
             </span>
           );
@@ -300,7 +303,7 @@ function ChampSelectTimeline({ myTeam, theirTeam, myTeamBanIds, theirTeamBanIds,
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {myTeamBanIds.map((id) => (
           <span key={id} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: '#ef444420', color: '#ef4444' }}>
-            <ChampionName championId={id} />
+            {getName(id)}
           </span>
         ))}
         {myTeamBanIds.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>none yet</span>}
@@ -312,7 +315,7 @@ function ChampSelectTimeline({ myTeam, theirTeam, myTeamBanIds, theirTeamBanIds,
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {theirTeam.map((p) => (
               <span key={p.cellId} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: '#334155', color: '#f1f5f9' }}>
-                <ChampionName championId={p.championId} />
+                {getName(p.championId)}
               </span>
             ))}
             {theirTeam.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>pending...</span>}
@@ -322,7 +325,7 @@ function ChampSelectTimeline({ myTeam, theirTeam, myTeamBanIds, theirTeamBanIds,
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {theirTeamBanIds.map((id) => (
               <span key={id} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: '#f59e0b20', color: '#f59e0b' }}>
-                <ChampionName championId={id} />
+                {getName(id)}
               </span>
             ))}
             {theirTeamBanIds.length === 0 && <span style={{ color: '#64748b', fontSize: 11 }}>none yet</span>}
